@@ -1,0 +1,11 @@
+manifest:
+  domain: camspeak
+  name: Camspeak
+  documentation: https://github.com/jeeftor/camspeak-hacs
+  issue_tracker: https://github.com/jeeftor/camspeak-hacs/issues
+  codeowners:
+    - jeeftor
+  config_flow: true
+  integration_type: hub
+  iot_class: local_polling
+  version: 0.1.0

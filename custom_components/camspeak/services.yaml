@@ -1,0 +1,200 @@
+speak:
+  name: Speak
+  description: Send text-to-speech to a camera
+  fields:
+    camera:
+      name: Camera
+      description: The camera name
+      required: true
+      example: backyard
+      selector:
+        text:
+    text:
+      name: Text
+      description: The text to speak
+      required: true
+      example: "Person detected at the door"
+      selector:
+        text:
+    voice:
+      name: Voice
+      description: TTS voice to use (optional)
+      required: false
+      example: af_sky
+      selector:
+        text:
+    gain:
+      name: Gain
+      description: Volume gain (0-10, default 3.0)
+      required: false
+      example: 3.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+
+play_preset:
+  name: Play preset
+  description: Play a saved audio preset on a camera
+  fields:
+    camera:
+      name: Camera
+      description: The camera name
+      required: true
+      example: backyard
+      selector:
+        text:
+    preset:
+      name: Preset
+      description: The preset name to play
+      required: true
+      example: person_detected
+      selector:
+        text:
+    category:
+      name: Category
+      description: Preset category (optional)
+      required: false
+      example: alerts
+      selector:
+        text:
+    gain:
+      name: Gain
+      description: Volume gain (0-10, default 3.0)
+      required: false
+      example: 3.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+    loop:
+      name: Loop
+      description: Loop the preset infinitely (pausable)
+      required: false
+      default: false
+      selector:
+        boolean:
+
+play_stream:
+  name: Play stream
+  description: Stream live audio from a URL to a camera
+  fields:
+    camera:
+      name: Camera
+      description: The camera name
+      required: true
+      example: backyard
+      selector:
+        text:
+    url:
+      name: URL
+      description: Stream URL or playlist (.pls/.m3u)
+      required: true
+      example: "http://stream.example.com:8000/live"
+      selector:
+        text:
+
+play_url:
+  name: Play URL
+  description: Download audio from a URL, transcode, and play on camera
+  fields:
+    camera:
+      name: Camera
+      description: The camera name
+      required: true
+      example: backyard
+      selector:
+        text:
+    url:
+      name: URL
+      description: Audio file URL
+      required: true
+      example: "https://example.com/sound.mp3"
+      selector:
+        text:
+
+broadcast:
+  name: Broadcast
+  description: Send TTS or preset to all cameras simultaneously
+  fields:
+    text:
+      name: Text
+      description: Text to speak (alternative to preset)
+      required: false
+      example: "Attention all cameras"
+      selector:
+        text:
+    preset:
+      name: Preset
+      description: Preset name to play (alternative to text)
+      required: false
+      example: alert
+      selector:
+        text:
+    voice:
+      name: Voice
+      description: TTS voice to use
+      required: false
+      example: af_sky
+      selector:
+        text:
+    gain:
+      name: Gain
+      description: Volume gain (0-10, default 3.0)
+      required: false
+      example: 3.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+
+beep:
+  name: Beep
+  description: Play an 800 Hz test beep on a camera
+  fields:
+    camera:
+      name: Camera
+      description: The camera name
+      required: true
+      example: backyard
+      selector:
+        text:
+
+stop:
+  name: Stop
+  description: Stop audio playback on a camera (or all cameras if omitted)
+  fields:
+    camera:
+      name: Camera
+      description: Camera name (omit for all cameras)
+      required: false
+      example: backyard
+      selector:
+        text:
+
+pause:
+  name: Pause
+  description: Pause a live stream or looped preset (resumable)
+  fields:
+    camera:
+      name: Camera
+      description: Camera name (omit for all cameras)
+      required: false
+      example: backyard
+      selector:
+        text:
+
+resume:
+  name: Resume
+  description: Resume a paused stream or looped preset
+  fields:
+    camera:
+      name: Camera
+      description: Camera name (omit for all cameras)
+      required: false
+      example: backyard
+      selector:
+        text:
