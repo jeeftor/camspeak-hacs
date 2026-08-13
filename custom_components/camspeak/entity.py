@@ -4,7 +4,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_URL, DOMAIN
 from .coordinator import CamspeakCoordinator
 
 _MANUFACTURERS = {
@@ -40,5 +40,5 @@ class CamspeakEntity(CoordinatorEntity[CamspeakCoordinator], Entity):
             name=camera_name,
             manufacturer=manufacturer,
             model=cam_type.capitalize() if cam_type else None,
-            configuration_url=f"http://{cam['ip']}" if cam.get("ip") else None,
+            configuration_url=coordinator.config_entry.data[CONF_URL],
         )
