@@ -64,6 +64,16 @@ def mock_camspeak_client() -> Generator[AsyncMock]:
             {"name": "alert", "category": "default", "duration": 2.5},
             {"name": "rain", "category": "uploads", "duration": 15.9},
         ]
+        client.get_voices.return_value = ["af_sky", "af_bella", "am_adam"]
+        client.speak.return_value = {"status": "ok", "ttfs_ms": 200, "total_ms": 500}
+        client.play_preset.return_value = {"status": "ok", "total_ms": 100}
+        client.play_stream.return_value = {"status": "ok"}
+        client.play_url.return_value = {"status": "ok", "total_ms": 300}
+        client.broadcast.return_value = {"status": "ok", "succeeded": ["backyard", "frontyard"]}
+        client.beep.return_value = {"status": "ok"}
+        client.stop.return_value = {"camera": "backyard", "status": "stopped"}
+        client.pause.return_value = {"status": "ok"}
+        client.resume.return_value = {"status": "ok"}
         yield client
 
 

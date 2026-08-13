@@ -1,6 +1,6 @@
 speak:
   name: Speak
-  description: Send text-to-speech to a camera
+  description: Send text-to-speech to a camera using camspeak's Kokoro engine
   target:
     entity:
       integration: camspeak
@@ -13,16 +13,28 @@ speak:
       example: "Person detected at the door"
       selector:
         text:
+          multiline: true
     voice:
       name: Voice
-      description: TTS voice to use (optional)
+      description: TTS voice to use (leave empty for default)
       required: false
       example: af_sky
       selector:
-        text:
+        select:
+          options:
+            - af_sky
+            - af_bella
+            - af_nicole
+            - af_sarah
+            - am_adam
+            - am_michael
+            - bf_emma
+            - bf_isabella
+            - bm_george
+            - bm_lewis
     gain:
       name: Gain
-      description: Volume gain (0-10, default 3.0)
+      description: Volume gain (0-10, leave empty for camera default)
       required: false
       example: 3.0
       selector:
@@ -30,6 +42,10 @@ speak:
           min: 0
           max: 10
           step: 0.1
+          mode: slider
+  response:
+    optional:
+      description: "Returns timing data: ttfs_ms, total_ms, timings"
 
 play_preset:
   name: Play preset
@@ -41,21 +57,21 @@ play_preset:
   fields:
     preset:
       name: Preset
-      description: The preset name to play
+      description: The preset name to play (from your camspeak library)
       required: true
-      example: person_detected
+      example: dog
       selector:
         text:
     category:
       name: Category
-      description: Preset category (optional)
+      description: Preset category (leave empty to search all categories)
       required: false
       example: alerts
       selector:
         text:
     gain:
       name: Gain
-      description: Volume gain (0-10, default 3.0)
+      description: Volume gain (0-10, leave empty for camera default)
       required: false
       example: 3.0
       selector:
@@ -63,6 +79,7 @@ play_preset:
           min: 0
           max: 10
           step: 0.1
+          mode: slider
     loop:
       name: Loop
       description: Loop the preset infinitely (pausable)
@@ -70,10 +87,13 @@ play_preset:
       default: false
       selector:
         boolean:
+  response:
+    optional:
+      description: "Returns timing data and playback status"
 
 play_stream:
   name: Play stream
-  description: Stream live audio from a URL to a camera
+  description: Stream live audio from a URL to a camera (supports .pls/.m3u playlists)
   target:
     entity:
       integration: camspeak
@@ -86,6 +106,9 @@ play_stream:
       example: "http://stream.example.com:8000/live"
       selector:
         text:
+  response:
+    optional:
+      description: "Returns playback status"
 
 play_url:
   name: Play URL
@@ -97,11 +120,14 @@ play_url:
   fields:
     url:
       name: URL
-      description: Audio file URL
+      description: Audio file URL (mp3, wav, ogg, etc.)
       required: true
       example: "https://example.com/sound.mp3"
       selector:
         text:
+  response:
+    optional:
+      description: "Returns timing data and playback status"
 
 broadcast:
   name: Broadcast
@@ -114,23 +140,35 @@ broadcast:
       example: "Attention all cameras"
       selector:
         text:
+          multiline: true
     preset:
       name: Preset
       description: Preset name to play (alternative to text)
       required: false
-      example: alert
+      example: dog
       selector:
         text:
     voice:
       name: Voice
-      description: TTS voice to use
+      description: TTS voice to use (leave empty for default)
       required: false
       example: af_sky
       selector:
-        text:
+        select:
+          options:
+            - af_sky
+            - af_bella
+            - af_nicole
+            - af_sarah
+            - am_adam
+            - am_michael
+            - bf_emma
+            - bf_isabella
+            - bm_george
+            - bm_lewis
     gain:
       name: Gain
-      description: Volume gain (0-10, default 3.0)
+      description: Volume gain (0-10, leave empty for camera default)
       required: false
       example: 3.0
       selector:
@@ -138,6 +176,10 @@ broadcast:
           min: 0
           max: 10
           step: 0.1
+          mode: slider
+  response:
+    optional:
+      description: "Returns list of cameras that succeeded"
 
 beep:
   name: Beep
@@ -149,11 +191,14 @@ beep:
 
 stop:
   name: Stop
-  description: Stop audio playback on a camera (or all cameras if omitted)
+  description: Stop audio playback on a camera (or all cameras if no target specified)
   target:
     entity:
       integration: camspeak
       domain: media_player
+  response:
+    optional:
+      description: "Returns stop status per camera"
 
 pause:
   name: Pause
@@ -162,6 +207,9 @@ pause:
     entity:
       integration: camspeak
       domain: media_player
+  response:
+    optional:
+      description: "Returns pause status per camera"
 
 resume:
   name: Resume
@@ -170,3 +218,6 @@ resume:
     entity:
       integration: camspeak
       domain: media_player
+  response:
+    optional:
+      description: "Returns resume status per camera"

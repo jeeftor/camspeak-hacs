@@ -13,7 +13,15 @@ Home Assistant custom integration for [camspeak](https://github.com/jeeftor/cams
 - **Media Player entities** for each camera — play presets, pause/resume/stop, volume control
 - **Binary sensors** — camera online/offline status
 - **Sensors** — playback state (idle/playing/paused)
-- **Services** — speak, play_preset, play_stream, play_url, broadcast, beep, stop, pause, resume
+- **Smart services** with entity selectors, response data, and validation:
+  - `speak` — TTS with voice dropdown, returns timing data
+  - `play_preset` — play from library, supports loop
+  - `play_stream` — live stream or playlist
+  - `play_url` — download + transcode + play any audio file
+  - `broadcast` — TTS or preset to all cameras, returns succeeded list
+  - `beep` — test tone
+  - `stop` / `pause` / `resume` — per-camera or all cameras
+- **Real-time updates** via SSE — playback state updates instantly, no polling lag
 - **Zeroconf discovery** — camspeak servers on your network are auto-discovered
 - **Config flow** — set up via UI with a single URL, no YAML required
 
@@ -65,6 +73,32 @@ data:
   gain: 5.0
 ```
 
+The `voice` field is a dropdown in the UI (af_sky, am_adam, etc.). Leave it empty to use the default voice configured in camspeak.
+
+The service returns timing data when called with `return_response: true`:
+
+```yaml
+action: camspeak.speak
+data:
+  entity_id: media_player.backyard_speaker
+  text: "Hello world"
+return_response: true
+```
+
+Returns:
+```json
+{
+  "cameras": {
+    "backyard": {
+      "status": "ok",
+      "ttfs_ms": 200,
+      "total_ms": 500,
+      "timings": {"tts_ms": 1991, "transcode_ms": 50, "send_playback_ms": 1305}
+    }
+  }
+}
+```
+
 You can also use HA's native TTS engines (Google, Piper, etc.) and pipe the result to camspeak via `play_media`:
 
 ```yaml
@@ -77,26 +111,28 @@ data:
 
 ### Services
 
+All per-camera services use entity selectors — in the UI you'll get a dropdown of your cameras. You can also target by device, area, or label.
+
 ```yaml
-# Text-to-speech (uses camspeak's Kokoro engine)
+# Text-to-speech (Kokoro engine, voice dropdown in UI)
 action: camspeak.speak
 data:
   entity_id: media_player.backyard_speaker
   text: "Person detected at the door"
   voice: af_sky
 
-# Play a preset
+# Play a preset (from your camspeak library)
 action: camspeak.play_preset
 data:
   entity_id: media_player.backyard_speaker
-  preset: person_detected
+  preset: dog
   category: alerts
 
 # Play a preset in a loop (pausable)
 action: camspeak.play_preset
 data:
   entity_id: media_player.backyard_speaker
-  preset: scary_sounds
+  preset: scary-laughing
   loop: true
 
 # Play an audio file (download + transcode + play)
@@ -111,26 +147,44 @@ data:
   entity_id: media_player.backyard_speaker
   url: "http://stream.example.com:8000/live"
 
-# Pause/resume/stop (entity_id optional — omit for all cameras)
-action: camspeak.pause
+# Broadcast to all cameras (returns which cameras succeeded)
+action: camspeak.broadcast
+data:
+  text: "Attention all cameras"
+return_response: true
+
+# Test beep
+action: camspeak.beep
 data:
   entity_id: media_player.backyard_speaker
 
-action: camspeak.resume
-data:
-  entity_id: media_player.backyard_speaker
-
+# Stop/pause/resume (entity_id optional — omit for all cameras)
 action: camspeak.stop
 data:
   entity_id: media_player.backyard_speaker
 
 # Stop all cameras
 action: camspeak.stop
+```
 
-# Broadcast to all cameras
-action: camspeak.broadcast
+### Targeting Multiple Cameras
+
+Services accept HA's standard target selectors. You can target by entity, device, area, or label:
+
+```yaml
+# Target all cameras in an area
+action: camspeak.speak
 data:
-  text: "Attention all cameras"
+  area_id: backyard
+  text: "Motion detected"
+
+# Target multiple cameras
+action: camspeak.speak
+data:
+  entity_id:
+    - media_player.backyard_speaker
+    - media_player.frontyard_speaker
+  text: "Alert"
 ```
 
 ### Example Automation
@@ -148,8 +202,23 @@ conditions:
 actions:
   - service: camspeak.play_preset
     data:
-      camera: backyard
-      preset: here-comes-the-rain-again
+      entity_id: media_player.backyard_speaker
+      preset: here-comes-the-rain-again-rain-storm-weather-pour-lightning-thubder-flood
+```
+
+Speak when a person is detected:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.front_door_person
+    to: "on"
+actions:
+  - service: camspeak.speak
+    data:
+      entity_id: media_player.frontyard_speaker
+      text: "Person detected at the front door"
+      voice: am_adam
 ```
 
 ## Requirements

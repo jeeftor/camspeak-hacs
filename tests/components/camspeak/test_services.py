@@ -3,6 +3,8 @@
 from unittest.mock import AsyncMock
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
+import pytest
 
 from tests.common import MockConfigEntry
 
@@ -16,10 +18,10 @@ async def test_speak_service(
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
 ) -> None:
-    """Test the speak service."""
+    """Test the speak service returns timing data."""
     await setup_integration(hass, mock_config_entry)
 
-    await hass.services.async_call(
+    response = await hass.services.async_call(
         "camspeak",
         "speak",
         {
@@ -29,6 +31,7 @@ async def test_speak_service(
             "gain": 5.0,
         },
         blocking=True,
+        return_response=True,
     )
     mock_camspeak_client.speak.assert_called_once_with(
         camera="backyard",
@@ -36,6 +39,25 @@ async def test_speak_service(
         voice="af_sky",
         gain=5.0,
     )
+    assert "cameras" in response
+    assert response["cameras"]["backyard"]["status"] == "ok"
+
+
+async def test_speak_no_target_raises(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test speak raises if no camera target specified."""
+    await setup_integration(hass, mock_config_entry)
+
+    with pytest.raises(ServiceValidationError, match="No cameras selected"):
+        await hass.services.async_call(
+            "camspeak",
+            "speak",
+            {"text": "Hello"},
+            blocking=True,
+        )
 
 
 async def test_play_preset_service(
@@ -46,7 +68,7 @@ async def test_play_preset_service(
     """Test the play_preset service."""
     await setup_integration(hass, mock_config_entry)
 
-    await hass.services.async_call(
+    response = await hass.services.async_call(
         "camspeak",
         "play_preset",
         {
@@ -56,6 +78,7 @@ async def test_play_preset_service(
             "loop": True,
         },
         blocking=True,
+        return_response=True,
     )
     mock_camspeak_client.play_preset.assert_called_once_with(
         camera="backyard",
@@ -64,6 +87,7 @@ async def test_play_preset_service(
         gain=0,
         loop=True,
     )
+    assert response["cameras"]["backyard"]["status"] == "ok"
 
 
 async def test_play_stream_service(
@@ -109,14 +133,15 @@ async def test_broadcast_service(
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
 ) -> None:
-    """Test the broadcast service."""
+    """Test the broadcast service returns succeeded cameras."""
     await setup_integration(hass, mock_config_entry)
 
-    await hass.services.async_call(
+    response = await hass.services.async_call(
         "camspeak",
         "broadcast",
         {"text": "Attention all cameras", "voice": "af_sky"},
         blocking=True,
+        return_response=True,
     )
     mock_camspeak_client.broadcast.assert_called_once_with(
         text="Attention all cameras",
@@ -124,6 +149,25 @@ async def test_broadcast_service(
         voice="af_sky",
         gain=0,
     )
+    assert response["status"] == "ok"
+    assert "backyard" in response["succeeded"]
+
+
+async def test_broadcast_no_text_or_preset_raises(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test broadcast raises if neither text nor preset is provided."""
+    await setup_integration(hass, mock_config_entry)
+
+    with pytest.raises(ServiceValidationError, match="Either text or preset"):
+        await hass.services.async_call(
+            "camspeak",
+            "broadcast",
+            {},
+            blocking=True,
+        )
 
 
 async def test_beep_service(

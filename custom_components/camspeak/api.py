@@ -66,6 +66,10 @@ class CamspeakApiClient:
         """GET /api/library."""
         return await self._request("GET", "/api/library")
 
+    async def get_voices(self) -> list[str]:
+        """GET /api/voices — available TTS voices."""
+        return await self._request("GET", "/api/voices")
+
     async def update_camera(self, camera: dict[str, Any]) -> dict[str, Any]:
         """POST /api/config/cameras — add or update a camera."""
         return await self._request("POST", "/api/config/cameras", json_data=camera)

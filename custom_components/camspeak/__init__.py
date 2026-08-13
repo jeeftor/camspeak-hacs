@@ -1,11 +1,12 @@
 """The camspeak Home Assistant integration."""
 
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, callback
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
     device_registry as dr,
@@ -45,7 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) -> 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    await _async_register_services(hass, coordinator)
+    _async_register_services(hass, coordinator)
     await coordinator.async_start_sse_listener()
 
     return True
@@ -97,49 +98,59 @@ async def _async_resolve_cameras(hass: HomeAssistant, call: ServiceCall) -> list
 
 def _make_per_camera_handler(
     hass: HomeAssistant,
-    api_call: Callable[..., Awaitable],
-) -> Callable[[ServiceCall], Awaitable[None]]:
+    api_call: Callable[..., Awaitable[dict[str, Any]]],
+) -> Callable[[ServiceCall], Awaitable[ServiceResponse]]:
     """Create a service handler that resolves targets and calls the API per camera."""
 
-    async def handler(call: ServiceCall) -> None:
+    async def handler(call: ServiceCall) -> ServiceResponse:
         cameras = await _async_resolve_cameras(hass, call)
+        if not cameras:
+            raise ServiceValidationError("No cameras selected — specify entity_id or target")
         data = service_helpers.remove_entity_service_fields(call)
+        results: dict[str, Any] = {}
         for camera in cameras:
-            await api_call(camera=camera, **data)
+            results[camera] = await api_call(camera=camera, **data)
+        return {"cameras": results}
 
     return handler
 
 
 def _make_all_or_camera_handler(
     hass: HomeAssistant,
-    api_call: Callable[..., Awaitable],
-) -> Callable[[ServiceCall], Awaitable[None]]:
+    api_call: Callable[..., Awaitable[dict[str, Any]]],
+) -> Callable[[ServiceCall], Awaitable[ServiceResponse]]:
     """Create a handler that calls API per camera, or all if no target."""
 
-    async def handler(call: ServiceCall) -> None:
+    async def handler(call: ServiceCall) -> ServiceResponse:
         cameras = await _async_resolve_cameras(hass, call)
         if cameras:
+            results: dict[str, Any] = {}
             for camera in cameras:
-                await api_call(camera=camera)
-        else:
-            await api_call(camera="")
+                results[camera] = await api_call(camera=camera)
+            return {"cameras": results}
+        return await api_call(camera="")
 
     return handler
 
 
-async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinator) -> None:
+@callback
+def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinator) -> None:
     """Register camspeak services."""
     client = coordinator.client
 
-    async def _async_broadcast(call: ServiceCall) -> None:
-        await client.broadcast(
-            text=call.data.get("text", ""),
-            preset=call.data.get("preset", ""),
+    async def _async_broadcast(call: ServiceCall) -> ServiceResponse:
+        text = call.data.get("text", "")
+        preset = call.data.get("preset", "")
+        if not text and not preset:
+            raise ServiceValidationError("Either text or preset is required for broadcast")
+        return await client.broadcast(
+            text=text,
+            preset=preset,
             voice=call.data.get("voice", ""),
             gain=call.data.get("gain", 0),
         )
 
-    services: dict[str, tuple[Callable, vol.Schema]] = {
+    services: dict[str, tuple[Callable, vol.Schema, bool]] = {
         "speak": (
             _make_per_camera_handler(hass, client.speak),
             vol.Schema(
@@ -150,6 +161,7 @@ async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoo
                     vol.Optional("gain"): vol.Coerce(float),
                 }
             ),
+            True,
         ),
         "play_preset": (
             _make_per_camera_handler(hass, client.play_preset),
@@ -162,6 +174,7 @@ async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoo
                     vol.Optional("loop"): bool,
                 }
             ),
+            True,
         ),
         "play_stream": (
             _make_per_camera_handler(hass, client.play_stream),
@@ -171,6 +184,7 @@ async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoo
                     vol.Required("url"): cv.string,
                 }
             ),
+            True,
         ),
         "play_url": (
             _make_per_camera_handler(hass, client.play_url),
@@ -180,6 +194,7 @@ async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoo
                     vol.Required("url"): cv.string,
                 }
             ),
+            True,
         ),
         "broadcast": (
             _async_broadcast,
@@ -191,27 +206,39 @@ async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoo
                     vol.Optional("gain"): vol.Coerce(float),
                 }
             ),
+            True,
         ),
         "beep": (
             _make_per_camera_handler(hass, client.beep),
             vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+            False,
         ),
         "stop": (
             _make_all_or_camera_handler(hass, client.stop),
             vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+            True,
         ),
         "pause": (
             _make_all_or_camera_handler(hass, client.pause),
             vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+            True,
         ),
         "resume": (
             _make_all_or_camera_handler(hass, client.resume),
             vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+            True,
         ),
     }
 
-    for name, (handler, schema) in services.items():
-        hass.services.async_register(DOMAIN, name, handler, schema=schema)
+    for name, (handler, schema, supports_response) in services.items():
+        response = ServiceResponse.OPTIONAL if supports_response else ServiceResponse.NONE
+        hass.services.async_register(
+            DOMAIN,
+            name,
+            handler,
+            schema=schema,
+            supports_response=response,
+        )
 
 
 @callback

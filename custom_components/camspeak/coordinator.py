@@ -51,6 +51,9 @@ class CamspeakData:
     """All data fetched from camspeak."""
 
     cameras: dict[str, CameraData]
+    voices: list[str]
+    preset_names: list[str]
+    categories: list[str]
 
 
 class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
@@ -83,6 +86,7 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
             config_cameras = await self.client.get_config_cameras()
             playback = await self.client.get_playback()
             presets = await self.client.get_library()
+            voices = await self.client.get_voices()
         except CamspeakApiClientError as exc:
             raise UpdateFailed(
                 translation_domain=DOMAIN,
@@ -93,6 +97,7 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
         # Merge live status (online, ip) with config (gain, channel, stream)
         config_by_name = {c["name"]: c for c in config_cameras}
         preset_names = [p["name"] for p in presets]
+        categories = sorted({p.get("category", "") for p in presets if p.get("category")})
         camera_data: dict[str, CameraData] = {}
         for cam in cameras:
             name = cam["name"]
@@ -104,7 +109,12 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
                 preset_names=preset_names,
             )
 
-        return CamspeakData(cameras=camera_data)
+        return CamspeakData(
+            cameras=camera_data,
+            voices=voices,
+            preset_names=preset_names,
+            categories=categories,
+        )
 
     async def async_start_sse_listener(self) -> None:
         """Start listening to the SSE event stream."""
