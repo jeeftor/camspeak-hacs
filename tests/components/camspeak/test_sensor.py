@@ -99,8 +99,8 @@ async def test_online_sensor_offline(
 ) -> None:
     """Test online sensor when camera is offline."""
     mock_camspeak_client.get_cameras.return_value = [
-        {"name": "backyard", "type": "hikvision", "online": False, "gain": 3.0},
-        {"name": "frontyard", "type": "hikvision", "online": True, "gain": 3.0},
+        {"name": "backyard", "type": "hikvision", "online": False, "ip": "10.0.0.50"},
+        {"name": "frontyard", "type": "hikvision", "online": True, "ip": "10.0.0.51"},
     ]
 
     await setup_integration(hass, mock_config_entry)

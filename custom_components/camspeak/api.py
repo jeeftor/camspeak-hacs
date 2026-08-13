@@ -51,8 +51,12 @@ class CamspeakApiClient:
         return await self._request("GET", "/api/health")
 
     async def get_cameras(self) -> list[dict[str, Any]]:
-        """GET /api/cameras."""
+        """GET /api/cameras — live status (online, ip, type)."""
         return await self._request("GET", "/api/cameras")
+
+    async def get_config_cameras(self) -> list[dict[str, Any]]:
+        """GET /api/config/cameras — config (gain, channel, stream, user)."""
+        return await self._request("GET", "/api/config/cameras")
 
     async def get_playback(self) -> dict[str, Any]:
         """GET /api/playback."""
@@ -61,6 +65,10 @@ class CamspeakApiClient:
     async def get_library(self) -> list[dict[str, Any]]:
         """GET /api/library."""
         return await self._request("GET", "/api/library")
+
+    async def update_camera(self, camera: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/config/cameras — add or update a camera."""
+        return await self._request("POST", "/api/config/cameras", json_data=camera)
 
     async def play_preset(
         self,

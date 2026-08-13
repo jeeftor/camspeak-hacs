@@ -193,7 +193,7 @@ async def test_media_player_set_volume(
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
 ) -> None:
-    """Test setting volume level."""
+    """Test setting volume level calls the API to update gain."""
     await setup_integration(hass, mock_config_entry)
 
     await hass.services.async_call(
@@ -202,6 +202,10 @@ async def test_media_player_set_volume(
         {"entity_id": MEDIA_PLAYER_ENTITY, "volume_level": 0.5},
         blocking=True,
     )
+    mock_camspeak_client.update_camera.assert_called_once()
+    call_args = mock_camspeak_client.update_camera.call_args[0][0]
+    assert call_args["name"] == "backyard"
+    assert call_args["gain"] == 5.0  # noqa: PLR2004
     state = hass.states.get(MEDIA_PLAYER_ENTITY)
     assert state.attributes.get("volume_level") == 0.5  # noqa: PLR2004
 
@@ -213,8 +217,8 @@ async def test_media_player_unavailable_when_offline(
 ) -> None:
     """Test media player is unavailable when camera is offline."""
     mock_camspeak_client.get_cameras.return_value = [
-        {"name": "backyard", "type": "hikvision", "online": False, "gain": 3.0},
-        {"name": "frontyard", "type": "hikvision", "online": True, "gain": 3.0},
+        {"name": "backyard", "type": "hikvision", "online": False, "ip": "10.0.0.50"},
+        {"name": "frontyard", "type": "hikvision", "online": True, "ip": "10.0.0.51"},
     ]
 
     await setup_integration(hass, mock_config_entry)

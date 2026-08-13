@@ -35,8 +35,26 @@ def mock_camspeak_client() -> Generator[AsyncMock]:
         client = mock_client.return_value
         client.health.return_value = {"status": "ok", "version": "1.0.0"}
         client.get_cameras.return_value = [
-            {"name": "backyard", "type": "hikvision", "online": True, "gain": 3.0},
-            {"name": "frontyard", "type": "hikvision", "online": True, "gain": 3.0},
+            {"name": "backyard", "type": "hikvision", "online": True, "ip": "10.0.0.50"},
+            {"name": "frontyard", "type": "hikvision", "online": True, "ip": "10.0.0.51"},
+        ]
+        client.get_config_cameras.return_value = [
+            {
+                "name": "backyard",
+                "type": "hikvision",
+                "gain": 3,
+                "ip": "10.0.0.50",
+                "channel": 1,
+                "stream": "backyard",
+            },
+            {
+                "name": "frontyard",
+                "type": "hikvision",
+                "gain": 3,
+                "ip": "10.0.0.51",
+                "channel": 1,
+                "stream": "frontyard",
+            },
         ]
         client.get_playback.return_value = {
             "backyard": {"state": "idle", "source": "", "detail": ""},

@@ -45,9 +45,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) ->
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        coordinator = entry.runtime_data
-        _async_remove_services(hass)
-        del coordinator
+        # Only remove services if no other camspeak entries are loaded
+        other_entries = [
+            e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id
+        ]
+        if not other_entries:
+            _async_remove_services(hass)
     return unload_ok
 
 

@@ -60,6 +60,7 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
         """Fetch cameras, playback state, and presets from camspeak."""
         try:
             cameras = await self.client.get_cameras()
+            config_cameras = await self.client.get_config_cameras()
             playback = await self.client.get_playback()
             presets = await self.client.get_library()
         except CamspeakApiClientError as exc:
@@ -69,12 +70,15 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
                 translation_placeholders={"error": str(exc)},
             ) from exc
 
+        # Merge live status (online, ip) with config (gain, channel, stream)
+        config_by_name = {c["name"]: c for c in config_cameras}
         preset_names = [p["name"] for p in presets]
         camera_data: dict[str, CameraData] = {}
         for cam in cameras:
             name = cam["name"]
+            merged = {**cam, **config_by_name.get(name, {})}
             camera_data[name] = CameraData(
-                camera=cam,
+                camera=merged,
                 playback=playback.get(name, {}),
                 presets=presets,
                 preset_names=preset_names,
