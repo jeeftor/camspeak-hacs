@@ -1,0 +1,17 @@
+{
+  "entity": {
+    "media_player": {
+      "speaker": {
+        "default": "mdi:speaker"
+      }
+    },
+    "sensor": {
+      "playback": {
+        "default": "mdi:speaker-message"
+      },
+      "online": {
+        "default": "mdi:camera"
+      }
+    }
+  }
+}

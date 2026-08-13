@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/camspeak-mark.svg" alt="camspeak" width="120">
+</p>
+
 # Camspeak Home Assistant Integration
 
 [![hacs](https://img.shields.io/badge/HACS-Default-orange)](https://github.com/hacs/integration)
