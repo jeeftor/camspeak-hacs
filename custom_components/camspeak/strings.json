@@ -10,11 +10,13 @@
     "step": {
       "user": {
         "data": {
-          "host": "[%key:common::config_flow::data::host%]",
-          "port": "Port",
+          "url": "URL",
           "verify_ssl": "Verify SSL certificate"
         },
-        "description": "Enter the address of your camspeak server."
+        "data_description": {
+          "url": "The full URL of your camspeak server, e.g. https://camspeak.example.com or http://10.0.0.50:8585"
+        },
+        "description": "Enter the URL of your camspeak server."
       },
       "zeroconf_confirm": {
         "description": "Do you want to add camspeak ({host}) to Home Assistant?",

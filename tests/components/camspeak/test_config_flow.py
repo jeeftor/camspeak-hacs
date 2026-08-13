@@ -4,13 +4,12 @@ from ipaddress import ip_address
 from unittest.mock import AsyncMock
 
 from homeassistant.config_entries import SOURCE_USER, SOURCE_ZEROCONF
-from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import pytest
 
-from custom_components.camspeak.const import CONF_VERIFY_SSL, DOMAIN
+from custom_components.camspeak.const import CONF_URL, CONF_VERIFY_SSL, DOMAIN
 
 ZEROCONF_DISCOVERY = ZeroconfServiceInfo(
     ip_address=ip_address("10.0.0.50"),
@@ -43,20 +42,41 @@ async def test_user_flow(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_HOST: "10.0.0.50",
-            CONF_PORT: 8585,
+            CONF_URL: "http://10.0.0.50:8585",
             CONF_VERIFY_SSL: False,
         },
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "camspeak (10.0.0.50)"
+    assert result["title"] == "camspeak (http://10.0.0.50:8585)"
     assert result["data"] == {
-        CONF_HOST: "10.0.0.50",
-        CONF_PORT: 8585,
+        CONF_URL: "http://10.0.0.50:8585",
         CONF_VERIFY_SSL: False,
     }
+
+
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_user_flow_adds_scheme(
+    hass: HomeAssistant,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test that entering a bare host gets http:// prepended."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_USER},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_URL: "10.0.0.50:8585",
+            CONF_VERIFY_SSL: False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_URL] == "http://10.0.0.50:8585"
 
 
 @pytest.mark.usefixtures("mock_setup_entry")
@@ -82,9 +102,7 @@ async def test_zeroconf_flow(
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "camspeak (10.0.0.50)"
-    assert result["data"][CONF_HOST] == "10.0.0.50"
-    assert result["data"][CONF_PORT] == 8585  # noqa: PLR2004
+    assert result["data"][CONF_URL] == "http://10.0.0.50:8585"
 
 
 async def test_user_flow_cannot_connect(
@@ -101,8 +119,7 @@ async def test_user_flow_cannot_connect(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_HOST: "10.0.0.99",
-            CONF_PORT: 8585,
+            CONF_URL: "http://10.0.0.99:8585",
             CONF_VERIFY_SSL: False,
         },
     )

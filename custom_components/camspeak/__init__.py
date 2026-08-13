@@ -1,14 +1,14 @@
 """The camspeak Home Assistant integration."""
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT, Platform
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 
 from .api import CamspeakApiClient
-from .const import CONF_VERIFY_SSL, DOMAIN, LOGGER
+from .const import CONF_URL, CONF_VERIFY_SSL, DOMAIN, LOGGER
 from .coordinator import CamspeakCoordinator
 
 PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER, Platform.SENSOR]
@@ -18,9 +18,8 @@ type CamspeakConfigEntry = ConfigEntry[CamspeakCoordinator]
 
 async def async_setup_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) -> bool:
     """Set up camspeak from a config entry."""
+    base_url = entry.data[CONF_URL]
     verify_ssl = entry.data.get(CONF_VERIFY_SSL, True)
-    scheme = "https" if verify_ssl else "http"
-    base_url = f"{scheme}://{entry.data[CONF_HOST]}:{entry.data[CONF_PORT]}"
 
     client = CamspeakApiClient(
         base_url,

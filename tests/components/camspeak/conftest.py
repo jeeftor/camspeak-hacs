@@ -3,10 +3,9 @@
 from collections.abc import Generator
 from unittest.mock import AsyncMock, patch
 
-from homeassistant.const import CONF_HOST, CONF_PORT
 import pytest
 
-from custom_components.camspeak.const import CONF_VERIFY_SSL, DOMAIN
+from custom_components.camspeak.const import CONF_URL, CONF_VERIFY_SSL, DOMAIN
 from tests.common import MockConfigEntry
 
 
@@ -55,11 +54,10 @@ def mock_config_entry() -> MockConfigEntry:
     """Create a mock config entry."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="camspeak (10.0.0.50)",
+        title="camspeak (http://10.0.0.50:8585)",
         data={
-            CONF_HOST: "10.0.0.50",
-            CONF_PORT: 8585,
+            CONF_URL: "http://10.0.0.50:8585",
             CONF_VERIFY_SSL: False,
         },
-        unique_id="10.0.0.50:8585",
+        unique_id="http://10.0.0.50:8585",
     )

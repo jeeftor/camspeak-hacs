@@ -22,8 +22,7 @@ async def test_diagnostics(
 
     diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, mock_config_entry)
 
-    assert diagnostics["entry"]["host"] == "10.0.0.50"
-    assert diagnostics["entry"]["port"] == 8585  # noqa: PLR2004
+    assert diagnostics["entry"]["url"] == "http://10.0.0.50:8585"
     assert diagnostics["entry"]["verify_ssl"] is False
 
     assert "backyard" in diagnostics["cameras"]

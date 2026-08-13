@@ -5,7 +5,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_VERIFY_SSL
+from .const import CONF_URL, CONF_VERIFY_SSL
 from .coordinator import CamspeakCoordinator
 
 
@@ -21,8 +21,7 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": {
             "title": entry.title,
-            "host": entry.data.get("host"),
-            "port": entry.data.get("port"),
+            "url": entry.data.get(CONF_URL),
             "verify_ssl": entry.data.get(CONF_VERIFY_SSL),
         },
         "cameras": {
