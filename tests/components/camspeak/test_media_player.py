@@ -80,7 +80,7 @@ async def test_media_player_volume(
     await setup_integration(hass, mock_config_entry)
 
     state = hass.states.get(MEDIA_PLAYER_ENTITY)
-    # gain=3.0 → volume=0.3
+    # gain=3 → volume=0.3
     assert state.attributes.get("volume_level") == 0.3  # noqa: PLR2004
 
 
@@ -99,7 +99,7 @@ async def test_media_player_source_list(
     assert "rain" in sources
 
 
-async def test_media_player_play_media(
+async def test_media_player_play_media_preset(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
@@ -120,6 +120,52 @@ async def test_media_player_play_media(
     mock_camspeak_client.play_preset.assert_called_once_with(camera="backyard", preset="rain")
 
 
+async def test_media_player_play_media_url(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test playing a URL via play_media service."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": MEDIA_PLAYER_ENTITY,
+            "media_content_type": "url",
+            "media_content_id": "https://example.com/sound.mp3",
+        },
+        blocking=True,
+    )
+    mock_camspeak_client.play_url.assert_called_once_with(
+        camera="backyard", url="https://example.com/sound.mp3"
+    )
+
+
+async def test_media_player_play_media_stream(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test playing a live stream via play_media service."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": MEDIA_PLAYER_ENTITY,
+            "media_content_type": "stream",
+            "media_content_id": "http://stream.example.com:8000/live",
+        },
+        blocking=True,
+    )
+    mock_camspeak_client.play_stream.assert_called_once_with(
+        camera="backyard", url="http://stream.example.com:8000/live"
+    )
+
+
 async def test_media_player_pause(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
@@ -137,13 +183,25 @@ async def test_media_player_pause(
     mock_camspeak_client.pause.assert_called_once_with(camera="backyard")
 
 
-async def test_media_player_play_resume(
+async def test_media_player_play_resume_when_paused(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
 ) -> None:
-    """Test resuming playback."""
+    """Test media_play resumes when state is paused."""
+    mock_camspeak_client.get_playback.return_value = {
+        "backyard": {
+            "state": "paused",
+            "source": "stream",
+            "detail": "http://stream.example.com/live",
+        },
+        "frontyard": {"state": "idle", "source": "", "detail": ""},
+    }
+
     await setup_integration(hass, mock_config_entry)
+
+    state = hass.states.get(MEDIA_PLAYER_ENTITY)
+    assert state.state == MediaPlayerState.PAUSED
 
     await hass.services.async_call(
         "media_player",
@@ -152,6 +210,26 @@ async def test_media_player_play_resume(
         blocking=True,
     )
     mock_camspeak_client.resume.assert_called_once_with(camera="backyard")
+
+
+async def test_media_player_play_does_nothing_when_idle(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test media_play does nothing when idle (no 404)."""
+    await setup_integration(hass, mock_config_entry)
+
+    state = hass.states.get(MEDIA_PLAYER_ENTITY)
+    assert state.state == MediaPlayerState.IDLE
+
+    await hass.services.async_call(
+        "media_player",
+        "media_play",
+        {"entity_id": MEDIA_PLAYER_ENTITY},
+        blocking=True,
+    )
+    mock_camspeak_client.resume.assert_not_called()
 
 
 async def test_media_player_stop(

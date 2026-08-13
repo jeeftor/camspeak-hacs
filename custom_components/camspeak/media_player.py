@@ -94,8 +94,19 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
 
     @override
     async def async_play_media(self, media_type: str, media_id: str, **kwargs: Any) -> None:
-        """Play a preset."""
-        await self.coordinator.client.play_preset(camera=self._camera_name, preset=media_id)
+        """Play media on the camera.
+
+        media_type determines how camspeak handles it:
+        - "music" or "preset": play a saved preset by name
+        - "url": download audio file, transcode, play
+        - "stream": stream live audio from URL/playlist
+        """
+        if media_type in ("url",):
+            await self.coordinator.client.play_url(camera=self._camera_name, url=media_id)
+        elif media_type in ("stream",):
+            await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
+        else:
+            await self.coordinator.client.play_preset(camera=self._camera_name, preset=media_id)
         await self.coordinator.async_request_refresh()
 
     @override
