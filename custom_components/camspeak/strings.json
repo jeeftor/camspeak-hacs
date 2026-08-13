@@ -1,0 +1,30 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "port": "Port",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "description": "Enter the address of your camspeak server."
+      },
+      "zeroconf_confirm": {
+        "description": "Do you want to add camspeak ({host}) to Home Assistant?",
+        "title": "Discovered camspeak"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Failed to connect to camspeak server"
+    }
+  }
+}

@@ -1,63 +1,83 @@
-"""Data update coordinator for camspeak."""
+"""DataUpdateCoordinator for camspeak."""
 
-from __future__ import annotations
-
-import logging
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import override
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
 from .api import CamspeakApiClient, CamspeakApiClientError
-from .const import DOMAIN
+from .const import DOMAIN, LOGGER
 
-_LOGGER = logging.getLogger(__name__)
-
-SCAN_INTERVAL = timedelta(seconds=10)
+type CamspeakConfigEntry = ConfigEntry["CamspeakCoordinator"]
 
 
-class CamspeakCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+@dataclass
+class CameraData:
+    """Per-camera data from camspeak."""
+
+    camera: dict
+    playback: dict
+    presets: list[dict]
+    preset_names: list[str]
+
+
+@dataclass
+class CamspeakData:
+    """All data fetched from camspeak."""
+
+    cameras: dict[str, CameraData]
+
+
+class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
     """Coordinator that polls camspeak for cameras and playback state."""
 
+    config_entry: CamspeakConfigEntry
+
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, client: CamspeakApiClient
+        self,
+        hass: HomeAssistant,
+        entry: CamspeakConfigEntry,
+        client: CamspeakApiClient,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
-            _LOGGER,
+            logger=LOGGER,
             name=DOMAIN,
-            update_interval=SCAN_INTERVAL,
+            update_interval=timedelta(seconds=10),
             config_entry=entry,
         )
         self.client = client
-        self.entry = entry
 
-    async def _async_update_data(self) -> dict[str, Any]:
+    @override
+    async def _async_update_data(self) -> CamspeakData:
         """Fetch cameras, playback state, and presets from camspeak."""
         try:
             cameras = await self.client.get_cameras()
             playback = await self.client.get_playback()
             presets = await self.client.get_library()
-        except CamspeakApiClientError as err:
-            raise UpdateFailed(f"Error communicating with camspeak: {err}") from err
+        except CamspeakApiClientError as exc:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="cannot_connect",
+                translation_placeholders={"error": str(exc)},
+            ) from exc
 
-        # Build a lookup of preset names (for media player sources)
         preset_names = [p["name"] for p in presets]
-
-        # Build per-camera data
-        camera_data: dict[str, Any] = {}
+        camera_data: dict[str, CameraData] = {}
         for cam in cameras:
             name = cam["name"]
-            cam_playback = playback.get(name, {})
-            camera_data[name] = {
-                "camera": cam,
-                "playback": cam_playback,
-                "presets": presets,
-                "preset_names": preset_names,
-            }
+            camera_data[name] = CameraData(
+                camera=cam,
+                playback=playback.get(name, {}),
+                presets=presets,
+                preset_names=preset_names,
+            )
 
-        return camera_data
+        return CamspeakData(cameras=camera_data)

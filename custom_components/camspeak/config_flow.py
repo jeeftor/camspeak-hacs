@@ -1,19 +1,15 @@
 """Config flow for camspeak integration."""
 
-from __future__ import annotations
+from typing import Any, override
 
-from typing import Any
-
-import aiohttp
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant.components.zeroconf import ZeroconfServiceInfo
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_VERIFY_SSL
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
 
 from .api import CamspeakApiClient, CamspeakApiClientError
-from .const import DEFAULT_PORT, DEFAULT_VERIFY_SSL, DOMAIN
+from .const import CONF_VERIFY_SSL, DEFAULT_PORT, DEFAULT_VERIFY_SSL, DOMAIN
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -24,84 +20,84 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-async def _test_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Validate the user input by hitting the health endpoint."""
-    scheme = "https" if data.get(CONF_VERIFY_SSL, True) else "http"
-    base_url = f"{scheme}://{data[CONF_HOST]}:{data[CONF_PORT]}"
-    client = CamspeakApiClient(base_url, verify_ssl=data[CONF_VERIFY_SSL])
+def _build_base_url(host: str, port: int, verify_ssl: bool) -> str:
+    """Build the base URL for the camspeak API."""
+    scheme = "https" if verify_ssl else "http"
+    return f"{scheme}://{host}:{port}"
+
+
+async def _test_connection(hass: Any, host: str, port: int, verify_ssl: bool) -> bool:
+    """Validate the connection by hitting the health endpoint."""
+    base_url = _build_base_url(host, port, verify_ssl)
+    client = CamspeakApiClient(
+        base_url,
+        session=aiohttp_client.async_get_clientsession(hass, verify_ssl=verify_ssl),
+    )
     try:
-        health = await client.health()
-        await client.close()
-        return health
-    except (CamspeakApiClientError, aiohttp.ClientError) as err:
-        await client.close()
-        raise CamspeakApiClientError(str(err)) from err
+        await client.health()
+    except CamspeakApiClientError:
+        return False
+    return True
 
 
-class CamspeakConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+class CamspeakConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for camspeak."""
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    @override
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
-        if user_input is None:
-            return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
-            )
-
         errors: dict[str, str] = {}
-
-        try:
-            await _test_connection(self.hass, user_input)
-        except CamspeakApiClientError:
+        if user_input is not None:
+            host = user_input[CONF_HOST]
+            port = user_input[CONF_PORT]
+            verify_ssl = user_input[CONF_VERIFY_SSL]
+            if await _test_connection(self.hass, host, port, verify_ssl):
+                await self.async_set_unique_id(f"{host}:{port}")
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=f"camspeak ({host})",
+                    data=user_input,
+                )
             errors["base"] = "cannot_connect"
-        except Exception:  # noqa: BLE001
-            errors["base"] = "unknown"
-        else:
-            title = f"camspeak ({user_input[CONF_HOST]})"
-            return self.async_create_entry(title=title, data=user_input)
-
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_zeroconf(
-        self, discovery_info: ZeroconfServiceInfo
-    ) -> FlowResult:
-        """Handle zeroconf discovery — pre-fill host/port from mDNS."""
+    @override
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
+        """Handle zeroconf discovery."""
         host = discovery_info.host
         port = discovery_info.port
-        properties = discovery_info.properties
 
-        # Extract version from TXT records if present
-        version = properties.get(b"version", b"").decode() if b"version" in properties else ""
-
-        # Build the data dict
-        data = {
-            CONF_HOST: host,
-            CONF_PORT: port,
-            CONF_VERIFY_SSL: False,  # local discovery → default to http
-        }
-
-        # Check if already configured
         await self.async_set_unique_id(f"{host}:{port}")
         self._abort_if_unique_id_configured()
 
-        # Try to validate the connection
-        try:
-            await _test_connection(self.hass, data)
-        except (CamspeakApiClientError, aiohttp.ClientError):
-            # Connection failed — try with SSL
-            data[CONF_VERIFY_SSL] = True
-            try:
-                await _test_connection(self.hass, data)
-            except (CamspeakApiClientError, aiohttp.ClientError):
-                # Still failed — let the user fix it manually
-                return await self.async_step_user()
+        # Try http first, then https
+        for verify_ssl in (False, True):
+            if await _test_connection(self.hass, host, port, verify_ssl):
+                self._discovery_data = {
+                    CONF_HOST: host,
+                    CONF_PORT: port,
+                    CONF_VERIFY_SSL: verify_ssl,
+                }
+                self.context["title_placeholders"] = {"host": host}
+                return await self.async_step_zeroconf_confirm()
 
-        title = f"camspeak ({host})"
-        self.context["title_placeholders"] = {"name": title}
-        return self.async_create_entry(title=title, data=data)
+        return self.async_abort(reason="cannot_connect")
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm zeroconf discovery."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title=f"camspeak ({self._discovery_data[CONF_HOST]})",
+                data=self._discovery_data,
+            )
+        self._set_confirm_only()
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            description_placeholders={"host": self._discovery_data[CONF_HOST]},
+        )

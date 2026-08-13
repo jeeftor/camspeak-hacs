@@ -3,3 +3,4 @@ __pycache__/
 *$py.class
 *.egg-info/
 .venv/
+.ruff_cache/
