@@ -106,9 +106,10 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
 
     @override
     async def async_media_play(self) -> None:
-        """Resume playback."""
-        await self.coordinator.client.resume(camera=self._camera_name)
-        await self.coordinator.async_request_refresh()
+        """Resume playback if paused."""
+        if self.state == MediaPlayerState.PAUSED:
+            await self.coordinator.client.resume(camera=self._camera_name)
+            await self.coordinator.async_request_refresh()
 
     @override
     async def async_media_stop(self) -> None:
