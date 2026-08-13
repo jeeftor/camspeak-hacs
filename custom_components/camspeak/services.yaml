@@ -1,14 +1,11 @@
 speak:
   name: Speak
   description: Send text-to-speech to a camera
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
   fields:
-    camera:
-      name: Camera
-      description: The camera name
-      required: true
-      example: backyard
-      selector:
-        text:
     text:
       name: Text
       description: The text to speak
@@ -37,14 +34,11 @@ speak:
 play_preset:
   name: Play preset
   description: Play a saved audio preset on a camera
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
   fields:
-    camera:
-      name: Camera
-      description: The camera name
-      required: true
-      example: backyard
-      selector:
-        text:
     preset:
       name: Preset
       description: The preset name to play
@@ -80,14 +74,11 @@ play_preset:
 play_stream:
   name: Play stream
   description: Stream live audio from a URL to a camera
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
   fields:
-    camera:
-      name: Camera
-      description: The camera name
-      required: true
-      example: backyard
-      selector:
-        text:
     url:
       name: URL
       description: Stream URL or playlist (.pls/.m3u)
@@ -99,14 +90,11 @@ play_stream:
 play_url:
   name: Play URL
   description: Download audio from a URL, transcode, and play on camera
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
   fields:
-    camera:
-      name: Camera
-      description: The camera name
-      required: true
-      example: backyard
-      selector:
-        text:
     url:
       name: URL
       description: Audio file URL
@@ -154,47 +142,31 @@ broadcast:
 beep:
   name: Beep
   description: Play an 800 Hz test beep on a camera
-  fields:
-    camera:
-      name: Camera
-      description: The camera name
-      required: true
-      example: backyard
-      selector:
-        text:
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
 
 stop:
   name: Stop
   description: Stop audio playback on a camera (or all cameras if omitted)
-  fields:
-    camera:
-      name: Camera
-      description: Camera name (omit for all cameras)
-      required: false
-      example: backyard
-      selector:
-        text:
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
 
 pause:
   name: Pause
   description: Pause a live stream or looped preset (resumable)
-  fields:
-    camera:
-      name: Camera
-      description: Camera name (omit for all cameras)
-      required: false
-      example: backyard
-      selector:
-        text:
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player
 
 resume:
   name: Resume
   description: Resume a paused stream or looped preset
-  fields:
-    camera:
-      name: Camera
-      description: Camera name (omit for all cameras)
-      required: false
-      example: backyard
-      selector:
-        text:
+  target:
+    entity:
+      integration: camspeak
+      domain: media_player

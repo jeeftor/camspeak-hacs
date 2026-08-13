@@ -59,7 +59,7 @@ Camspeak has its own TTS engine (Kokoro, OpenAI-compatible). Use the `camspeak.s
 ```yaml
 action: camspeak.speak
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
   text: "Person detected at the door"
   voice: af_sky
   gain: 5.0
@@ -81,48 +81,51 @@ data:
 # Text-to-speech (uses camspeak's Kokoro engine)
 action: camspeak.speak
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
   text: "Person detected at the door"
   voice: af_sky
 
 # Play a preset
 action: camspeak.play_preset
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
   preset: person_detected
   category: alerts
 
 # Play a preset in a loop (pausable)
 action: camspeak.play_preset
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
   preset: scary_sounds
   loop: true
 
 # Play an audio file (download + transcode + play)
 action: camspeak.play_url
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
   url: "https://example.com/alert.mp3"
 
 # Stream a live URL or playlist
 action: camspeak.play_stream
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
   url: "http://stream.example.com:8000/live"
 
-# Pause/resume/stop
+# Pause/resume/stop (entity_id optional — omit for all cameras)
 action: camspeak.pause
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
 
 action: camspeak.resume
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
 
 action: camspeak.stop
 data:
-  camera: backyard
+  entity_id: media_player.backyard_speaker
+
+# Stop all cameras
+action: camspeak.stop
 
 # Broadcast to all cameras
 action: camspeak.broadcast

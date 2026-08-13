@@ -1,9 +1,18 @@
 """The camspeak Home Assistant integration."""
 
+from collections.abc import Awaitable, Callable
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.helpers import config_validation as cv
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry as er,
+    service as service_helpers,
+    target as target_helpers,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 
@@ -48,7 +57,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) ->
     await coordinator.async_stop_sse_listener()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        # Only remove services if no other camspeak entries are loaded
         other_entries = [
             e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id
         ]
@@ -57,39 +65,73 @@ async def async_unload_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) ->
     return unload_ok
 
 
+def _resolve_camera_name(hass: HomeAssistant, entity_id: str) -> str:
+    """Resolve media_player entity_id to camspeak camera name via device registry."""
+    registry = er.async_get(hass)
+    entity_entry = registry.async_get(entity_id)
+    if entity_entry is None or entity_entry.device_id is None:
+        raise HomeAssistantError(f"Camera not found for entity {entity_id}")
+
+    dev_registry = dr.async_get(hass)
+    device = dev_registry.async_get(entity_entry.device_id)
+    if device is None:
+        raise HomeAssistantError(f"Device not found for entity {entity_id}")
+
+    for domain, ident in device.identifiers:
+        if domain == DOMAIN:
+            return ident
+
+    raise HomeAssistantError(f"Camera name not found for entity {entity_id}")
+
+
+async def _async_resolve_cameras(hass: HomeAssistant, call: ServiceCall) -> list[str]:
+    """Resolve service call targets to camera names."""
+    target_selection = target_helpers.TargetSelection(call.data)
+    referenced = target_helpers.async_extract_referenced_entity_ids(
+        hass, target_selection, expand_group=True
+    )
+    if not referenced.referenced:
+        return []
+    return [_resolve_camera_name(hass, eid) for eid in referenced.referenced]
+
+
+def _make_per_camera_handler(
+    hass: HomeAssistant,
+    api_call: Callable[..., Awaitable],
+) -> Callable[[ServiceCall], Awaitable[None]]:
+    """Create a service handler that resolves targets and calls the API per camera."""
+
+    async def handler(call: ServiceCall) -> None:
+        cameras = await _async_resolve_cameras(hass, call)
+        data = service_helpers.remove_entity_service_fields(call)
+        for camera in cameras:
+            await api_call(camera=camera, **data)
+
+    return handler
+
+
+def _make_all_or_camera_handler(
+    hass: HomeAssistant,
+    api_call: Callable[..., Awaitable],
+) -> Callable[[ServiceCall], Awaitable[None]]:
+    """Create a handler that calls API per camera, or all if no target."""
+
+    async def handler(call: ServiceCall) -> None:
+        cameras = await _async_resolve_cameras(hass, call)
+        if cameras:
+            for camera in cameras:
+                await api_call(camera=camera)
+        else:
+            await api_call(camera="")
+
+    return handler
+
+
 async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinator) -> None:
     """Register camspeak services."""
     client = coordinator.client
 
-    async def _async_speak(call: ServiceCall) -> None:
-        """Speak text on a camera."""
-        await client.speak(
-            camera=call.data["camera"],
-            text=call.data["text"],
-            voice=call.data.get("voice", ""),
-            gain=call.data.get("gain", 0),
-        )
-
-    async def _async_play_preset(call: ServiceCall) -> None:
-        """Play a preset on a camera."""
-        await client.play_preset(
-            camera=call.data["camera"],
-            preset=call.data["preset"],
-            category=call.data.get("category", ""),
-            gain=call.data.get("gain", 0),
-            loop=call.data.get("loop", False),
-        )
-
-    async def _async_play_stream(call: ServiceCall) -> None:
-        """Stream a live URL to a camera."""
-        await client.play_stream(camera=call.data["camera"], url=call.data["url"])
-
-    async def _async_play_url(call: ServiceCall) -> None:
-        """Download and play a URL on a camera."""
-        await client.play_url(camera=call.data["camera"], url=call.data["url"])
-
     async def _async_broadcast(call: ServiceCall) -> None:
-        """Broadcast to all cameras."""
         await client.broadcast(
             text=call.data.get("text", ""),
             preset=call.data.get("preset", ""),
@@ -97,124 +139,79 @@ async def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoo
             gain=call.data.get("gain", 0),
         )
 
-    async def _async_beep(call: ServiceCall) -> None:
-        """Play a test beep."""
-        await client.beep(camera=call.data["camera"])
+    services: dict[str, tuple[Callable, vol.Schema]] = {
+        "speak": (
+            _make_per_camera_handler(hass, client.speak),
+            vol.Schema(
+                {
+                    **cv.ENTITY_SERVICE_FIELDS,
+                    vol.Required("text"): cv.string,
+                    vol.Optional("voice"): cv.string,
+                    vol.Optional("gain"): vol.Coerce(float),
+                }
+            ),
+        ),
+        "play_preset": (
+            _make_per_camera_handler(hass, client.play_preset),
+            vol.Schema(
+                {
+                    **cv.ENTITY_SERVICE_FIELDS,
+                    vol.Required("preset"): cv.string,
+                    vol.Optional("category"): cv.string,
+                    vol.Optional("gain"): vol.Coerce(float),
+                    vol.Optional("loop"): bool,
+                }
+            ),
+        ),
+        "play_stream": (
+            _make_per_camera_handler(hass, client.play_stream),
+            vol.Schema(
+                {
+                    **cv.ENTITY_SERVICE_FIELDS,
+                    vol.Required("url"): cv.string,
+                }
+            ),
+        ),
+        "play_url": (
+            _make_per_camera_handler(hass, client.play_url),
+            vol.Schema(
+                {
+                    **cv.ENTITY_SERVICE_FIELDS,
+                    vol.Required("url"): cv.string,
+                }
+            ),
+        ),
+        "broadcast": (
+            _async_broadcast,
+            vol.Schema(
+                {
+                    vol.Optional("text"): cv.string,
+                    vol.Optional("preset"): cv.string,
+                    vol.Optional("voice"): cv.string,
+                    vol.Optional("gain"): vol.Coerce(float),
+                }
+            ),
+        ),
+        "beep": (
+            _make_per_camera_handler(hass, client.beep),
+            vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+        ),
+        "stop": (
+            _make_all_or_camera_handler(hass, client.stop),
+            vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+        ),
+        "pause": (
+            _make_all_or_camera_handler(hass, client.pause),
+            vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+        ),
+        "resume": (
+            _make_all_or_camera_handler(hass, client.resume),
+            vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
+        ),
+    }
 
-    async def _async_stop(call: ServiceCall) -> None:
-        """Stop playback."""
-        await client.stop(camera=call.data.get("camera", ""))
-
-    async def _async_pause(call: ServiceCall) -> None:
-        """Pause playback."""
-        await client.pause(camera=call.data.get("camera", ""))
-
-    async def _async_resume(call: ServiceCall) -> None:
-        """Resume playback."""
-        await client.resume(camera=call.data.get("camera", ""))
-
-    hass.services.async_register(
-        DOMAIN,
-        "speak",
-        _async_speak,
-        schema=vol.Schema(
-            {
-                vol.Required("camera"): cv.string,
-                vol.Required("text"): cv.string,
-                vol.Optional("voice"): cv.string,
-                vol.Optional("gain"): vol.Coerce(float),
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "play_preset",
-        _async_play_preset,
-        schema=vol.Schema(
-            {
-                vol.Required("camera"): cv.string,
-                vol.Required("preset"): cv.string,
-                vol.Optional("category"): cv.string,
-                vol.Optional("gain"): vol.Coerce(float),
-                vol.Optional("loop"): bool,
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "play_stream",
-        _async_play_stream,
-        schema=vol.Schema(
-            {
-                vol.Required("camera"): cv.string,
-                vol.Required("url"): cv.string,
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "play_url",
-        _async_play_url,
-        schema=vol.Schema(
-            {
-                vol.Required("camera"): cv.string,
-                vol.Required("url"): cv.string,
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "broadcast",
-        _async_broadcast,
-        schema=vol.Schema(
-            {
-                vol.Optional("text"): cv.string,
-                vol.Optional("preset"): cv.string,
-                vol.Optional("voice"): cv.string,
-                vol.Optional("gain"): vol.Coerce(float),
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "beep",
-        _async_beep,
-        schema=vol.Schema(
-            {
-                vol.Required("camera"): cv.string,
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "stop",
-        _async_stop,
-        schema=vol.Schema(
-            {
-                vol.Optional("camera"): cv.string,
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "pause",
-        _async_pause,
-        schema=vol.Schema(
-            {
-                vol.Optional("camera"): cv.string,
-            }
-        ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        "resume",
-        _async_resume,
-        schema=vol.Schema(
-            {
-                vol.Optional("camera"): cv.string,
-            }
-        ),
-    )
+    for name, (handler, schema) in services.items():
+        hass.services.async_register(DOMAIN, name, handler, schema=schema)
 
 
 @callback

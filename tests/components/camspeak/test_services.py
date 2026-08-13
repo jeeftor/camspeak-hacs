@@ -8,6 +8,8 @@ from tests.common import MockConfigEntry
 
 from . import setup_integration
 
+MEDIA_PLAYER_ENTITY = "media_player.backyard_speaker"
+
 
 async def test_speak_service(
     hass: HomeAssistant,
@@ -21,7 +23,7 @@ async def test_speak_service(
         "camspeak",
         "speak",
         {
-            "camera": "backyard",
+            "entity_id": MEDIA_PLAYER_ENTITY,
             "text": "Person detected",
             "voice": "af_sky",
             "gain": 5.0,
@@ -48,7 +50,7 @@ async def test_play_preset_service(
         "camspeak",
         "play_preset",
         {
-            "camera": "backyard",
+            "entity_id": MEDIA_PLAYER_ENTITY,
             "preset": "rain",
             "category": "uploads",
             "loop": True,
@@ -75,7 +77,7 @@ async def test_play_stream_service(
     await hass.services.async_call(
         "camspeak",
         "play_stream",
-        {"camera": "backyard", "url": "http://stream.example.com/live"},
+        {"entity_id": MEDIA_PLAYER_ENTITY, "url": "http://stream.example.com/live"},
         blocking=True,
     )
     mock_camspeak_client.play_stream.assert_called_once_with(
@@ -94,7 +96,7 @@ async def test_play_url_service(
     await hass.services.async_call(
         "camspeak",
         "play_url",
-        {"camera": "backyard", "url": "https://example.com/sound.mp3"},
+        {"entity_id": MEDIA_PLAYER_ENTITY, "url": "https://example.com/sound.mp3"},
         blocking=True,
     )
     mock_camspeak_client.play_url.assert_called_once_with(
@@ -135,7 +137,7 @@ async def test_beep_service(
     await hass.services.async_call(
         "camspeak",
         "beep",
-        {"camera": "backyard"},
+        {"entity_id": MEDIA_PLAYER_ENTITY},
         blocking=True,
     )
     mock_camspeak_client.beep.assert_called_once_with(camera="backyard")
@@ -152,7 +154,7 @@ async def test_stop_service(
     await hass.services.async_call(
         "camspeak",
         "stop",
-        {"camera": "backyard"},
+        {"entity_id": MEDIA_PLAYER_ENTITY},
         blocking=True,
     )
     mock_camspeak_client.stop.assert_called_once_with(camera="backyard")
@@ -163,7 +165,7 @@ async def test_stop_all_service(
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
 ) -> None:
-    """Test the stop service without camera (stops all)."""
+    """Test the stop service without entity_id (stops all)."""
     await setup_integration(hass, mock_config_entry)
 
     await hass.services.async_call(
@@ -186,7 +188,7 @@ async def test_pause_service(
     await hass.services.async_call(
         "camspeak",
         "pause",
-        {"camera": "backyard"},
+        {"entity_id": MEDIA_PLAYER_ENTITY},
         blocking=True,
     )
     mock_camspeak_client.pause.assert_called_once_with(camera="backyard")
@@ -203,7 +205,7 @@ async def test_resume_service(
     await hass.services.async_call(
         "camspeak",
         "resume",
-        {"camera": "backyard"},
+        {"entity_id": MEDIA_PLAYER_ENTITY},
         blocking=True,
     )
     mock_camspeak_client.resume.assert_called_once_with(camera="backyard")
