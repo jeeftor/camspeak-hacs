@@ -11,7 +11,11 @@ from .api import CamspeakApiClient
 from .const import CONF_URL, CONF_VERIFY_SSL, DOMAIN, LOGGER
 from .coordinator import CamspeakCoordinator
 
-PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER, Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.MEDIA_PLAYER,
+    Platform.SENSOR,
+]
 
 type CamspeakConfigEntry = ConfigEntry[CamspeakCoordinator]
 

@@ -11,7 +11,7 @@ from tests.common import MockConfigEntry, async_fire_time_changed
 from . import setup_integration
 
 PLAYBACK_ENTITY = "sensor.backyard_playback"
-ONLINE_ENTITY = "sensor.backyard_online"
+ONLINE_ENTITY = "binary_sensor.backyard_online"
 
 
 async def test_playback_sensor_idle(

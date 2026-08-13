@@ -1,5 +1,10 @@
 {
   "entity": {
+    "binary_sensor": {
+      "online": {
+        "default": "mdi:camera"
+      }
+    },
     "media_player": {
       "speaker": {
         "default": "mdi:speaker"
@@ -8,9 +13,6 @@
     "sensor": {
       "playback": {
         "default": "mdi:speaker-message"
-      },
-      "online": {
-        "default": "mdi:camera"
       }
     }
   }
