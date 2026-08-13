@@ -1,9 +1,13 @@
 """DataUpdateCoordinator for camspeak."""
 
+import asyncio
+import contextlib
 from dataclasses import dataclass
 from datetime import timedelta
+import json
 from typing import override
 
+from aiohttp import ClientTimeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
@@ -15,6 +19,21 @@ from .api import CamspeakApiClient, CamspeakApiClientError
 from .const import DOMAIN, LOGGER
 
 type CamspeakConfigEntry = ConfigEntry["CamspeakCoordinator"]
+
+# Actions that indicate playback state changed and warrant a refresh
+_REFRESH_ACTIONS = frozenset(
+    {
+        "speak",
+        "play",
+        "play-stream",
+        "play-url",
+        "stop",
+        "stop-all",
+        "pause",
+        "resume",
+        "beep",
+    }
+)
 
 
 @dataclass
@@ -35,7 +54,7 @@ class CamspeakData:
 
 
 class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
-    """Coordinator that polls camspeak for cameras and playback state."""
+    """Coordinator that polls camspeak and listens to SSE for real-time updates."""
 
     config_entry: CamspeakConfigEntry
 
@@ -50,10 +69,11 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
             hass,
             logger=LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=10),
+            update_interval=timedelta(seconds=30),
             config_entry=entry,
         )
         self.client = client
+        self._sse_task: asyncio.Task | None = None
 
     @override
     async def _async_update_data(self) -> CamspeakData:
@@ -85,3 +105,45 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
             )
 
         return CamspeakData(cameras=camera_data)
+
+    async def async_start_sse_listener(self) -> None:
+        """Start listening to the SSE event stream."""
+        self._sse_task = asyncio.create_task(self._sse_loop())
+
+    async def async_stop_sse_listener(self) -> None:
+        """Stop the SSE listener."""
+        if self._sse_task:
+            self._sse_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._sse_task
+            self._sse_task = None
+
+    async def _sse_loop(self) -> None:
+        """Listen to SSE events and trigger refresh on playback changes."""
+        url = f"{self.client._base_url}/api/events"  # noqa: SLF001
+        while True:
+            try:
+                async with self.client._session.get(  # noqa: SLF001
+                    url, timeout=ClientTimeout(total=None), raise_for_status=True
+                ) as resp:
+                    async for raw_line in resp.content:
+                        line = raw_line.strip()
+                        if not line or not line.startswith(b"data: "):
+                            continue
+                        try:
+                            event = json.loads(line[6:])
+                        except json.JSONDecodeError:
+                            continue
+                        action = event.get("action", "")
+                        if action in _REFRESH_ACTIONS:
+                            LOGGER.debug(
+                                "SSE event: %s on %s — refreshing",
+                                action,
+                                event.get("camera"),
+                            )
+                            await self.async_request_refresh()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug("SSE connection lost: %s — reconnecting in 5s", exc)
+                await asyncio.sleep(5)
