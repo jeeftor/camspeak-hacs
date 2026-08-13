@@ -60,5 +60,9 @@ No build step — Python is interpreted by HA at runtime. To test:
 ## HACS requirements
 
 - `hacs.json` declares minimum HA version and HACS version
-- `manifest.yaml` sets `integration_type: hub` and `config_flow: true`
+- `manifest.yaml` sets `integration_type: hub`, `config_flow: true`, and declares `zeroconf` discovery for `_camspeak._tcp.local.`
 - Repo must have `README.md` and `LICENSE` (HACS validates these)
+
+## Auto-discovery
+
+camspeak advertises itself via mDNS as `_camspeak._tcp.local.` (see camspeak's `internal/discovery/` package). HA's built-in zeroconf scanner picks this up and triggers `async_step_zeroconf` in the config flow, which pre-fills the host and port from the mDNS TXT records. No manual entry needed — the user just clicks "Configure" on the discovered device.

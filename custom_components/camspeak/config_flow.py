@@ -7,6 +7,7 @@ from typing import Any
 import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.zeroconf import ZeroconfServiceInfo
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
@@ -66,3 +67,41 @@ class CamspeakConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> FlowResult:
+        """Handle zeroconf discovery — pre-fill host/port from mDNS."""
+        host = discovery_info.host
+        port = discovery_info.port
+        properties = discovery_info.properties
+
+        # Extract version from TXT records if present
+        version = properties.get(b"version", b"").decode() if b"version" in properties else ""
+
+        # Build the data dict
+        data = {
+            CONF_HOST: host,
+            CONF_PORT: port,
+            CONF_VERIFY_SSL: False,  # local discovery → default to http
+        }
+
+        # Check if already configured
+        await self.async_set_unique_id(f"{host}:{port}")
+        self._abort_if_unique_id_configured()
+
+        # Try to validate the connection
+        try:
+            await _test_connection(self.hass, data)
+        except (CamspeakApiClientError, aiohttp.ClientError):
+            # Connection failed — try with SSL
+            data[CONF_VERIFY_SSL] = True
+            try:
+                await _test_connection(self.hass, data)
+            except (CamspeakApiClientError, aiohttp.ClientError):
+                # Still failed — let the user fix it manually
+                return await self.async_step_user()
+
+        title = f"camspeak ({host})"
+        self.context["title_placeholders"] = {"name": title}
+        return self.async_create_entry(title=title, data=data)
