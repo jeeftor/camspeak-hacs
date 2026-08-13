@@ -223,7 +223,7 @@ actions:
 
 ## Requirements
 
-- A running camspeak server (see [camspeak](https://github.com/jeeftor/camspeak))
+- A running [camspeak](https://github.com/jeeftor/camspeak) server (v2.12.0+ for `/api/voices` endpoint)
 - Home Assistant 2024.1.0 or newer
 
 ## License
