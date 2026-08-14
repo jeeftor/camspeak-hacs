@@ -4,6 +4,7 @@
   "codeowners": ["@jeeftor"],
   "config_flow": true,
   "documentation": "https://github.com/jeeftor/camspeak-hacs",
+  "icon": "mdi:cctv",
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/jeeftor/camspeak-hacs/issues",
