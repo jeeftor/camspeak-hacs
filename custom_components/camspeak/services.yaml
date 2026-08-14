@@ -16,22 +16,11 @@ speak:
           multiline: true
     voice:
       name: Voice
-      description: TTS voice to use (leave empty for default)
+      description: TTS voice to use (leave empty for default; validated against server voice list at runtime)
       required: false
       example: af_sky
       selector:
-        select:
-          options:
-            - af_sky
-            - af_bella
-            - af_nicole
-            - af_sarah
-            - am_adam
-            - am_michael
-            - bf_emma
-            - bf_isabella
-            - bm_george
-            - bm_lewis
+        text:
     gain:
       name: Gain
       description: Volume gain (0-10, leave empty for camera default)
@@ -157,22 +146,11 @@ broadcast:
         text:
     voice:
       name: Voice
-      description: TTS voice to use (leave empty for default)
+      description: TTS voice to use (leave empty for default; validated against server voice list at runtime)
       required: false
       example: af_sky
       selector:
-        select:
-          options:
-            - af_sky
-            - af_bella
-            - af_nicole
-            - af_sarah
-            - am_adam
-            - am_michael
-            - bf_emma
-            - bf_isabella
-            - bm_george
-            - bm_lewis
+        text:
     gain:
       name: Gain
       description: Volume gain (0-10, leave empty for camera default)

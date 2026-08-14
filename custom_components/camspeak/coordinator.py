@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for camspeak."""
 
 import asyncio
+from collections.abc import Callable
 import contextlib
 from dataclasses import dataclass
 from datetime import timedelta
@@ -60,6 +61,7 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
     """Coordinator that polls camspeak and listens to SSE for real-time updates."""
 
     config_entry: CamspeakConfigEntry
+    async_on_voice_change: Callable[[list[str]], None] | None = None
 
     def __init__(
         self,
@@ -77,6 +79,7 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
         )
         self.client = client
         self._sse_task: asyncio.Task | None = None
+        self._prev_voices: list[str] = []
 
     @override
     async def _async_update_data(self) -> CamspeakData:
@@ -109,12 +112,18 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
                 preset_names=preset_names,
             )
 
-        return CamspeakData(
+        result = CamspeakData(
             cameras=camera_data,
             voices=voices,
             preset_names=preset_names,
             categories=categories,
         )
+
+        if self.async_on_voice_change and voices != self._prev_voices:
+            self._prev_voices = list(voices)
+            self.async_on_voice_change(voices)
+
+        return result
 
     async def async_start_sse_listener(self) -> None:
         """Start listening to the SSE event stream."""

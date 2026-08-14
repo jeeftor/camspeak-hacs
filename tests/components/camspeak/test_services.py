@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 import pytest
+import voluptuous as vol
 
 from tests.common import MockConfigEntry
 
@@ -253,3 +254,58 @@ async def test_resume_service(
         blocking=True,
     )
     mock_camspeak_client.resume.assert_called_once_with(camera="backyard")
+
+
+async def test_speak_invalid_voice_rejected(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test speak rejects a voice not in the server's voice list."""
+    await setup_integration(hass, mock_config_entry)
+
+    with pytest.raises((ServiceValidationError, vol.Invalid), match="Unknown voice"):
+        await hass.services.async_call(
+            "camspeak",
+            "speak",
+            {"entity_id": MEDIA_PLAYER_ENTITY, "text": "Hello", "voice": "nonexistent_voice"},
+            blocking=True,
+        )
+
+
+async def test_speak_empty_voice_accepted(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test speak accepts empty voice (uses server default)."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "camspeak",
+        "speak",
+        {"entity_id": MEDIA_PLAYER_ENTITY, "text": "Hello", "voice": ""},
+        blocking=True,
+    )
+    mock_camspeak_client.speak.assert_called_once_with(
+        camera="backyard",
+        text="Hello",
+        voice="",
+    )
+
+
+async def test_broadcast_invalid_voice_rejected(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test broadcast rejects a voice not in the server's voice list."""
+    await setup_integration(hass, mock_config_entry)
+
+    with pytest.raises((ServiceValidationError, vol.Invalid), match="Unknown voice"):
+        await hass.services.async_call(
+            "camspeak",
+            "broadcast",
+            {"text": "Attention", "voice": "nonexistent_voice"},
+            blocking=True,
+        )

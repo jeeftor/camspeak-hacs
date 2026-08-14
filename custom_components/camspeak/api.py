@@ -80,9 +80,7 @@ class CamspeakApiClient:
         Takes effect immediately on the next audio chunk without restarting
         playback. Also persists to camera config.
         """
-        return await self._request(
-            "PUT", f"/api/cameras/{camera}/volume", json_data={"gain": gain}
-        )
+        return await self._request("PUT", f"/api/cameras/{camera}/volume", json_data={"gain": gain})
 
     async def play_preset(
         self,

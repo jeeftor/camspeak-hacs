@@ -47,6 +47,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) -> 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _async_register_services(hass, coordinator)
+
+    @callback
+    def _on_voice_change(voices: list[str]) -> None:
+        _async_register_services(hass, coordinator, voices)
+
+    coordinator.async_on_voice_change = _on_voice_change
     await coordinator.async_start_sse_listener()
 
     return True
@@ -133,9 +139,33 @@ def _make_all_or_camera_handler(
     return handler
 
 
+def _voice_validator(voices: list[str]) -> vol.All:
+    """Build a voluptuous validator that accepts empty string or a known voice."""
+    valid = set(voices)
+    if valid:
+        hint = f"Unknown voice — available: {', '.join(sorted(valid))}"
+    else:
+        hint = "No voices loaded from server"
+    return vol.All(
+        str,
+        vol.Any(
+            "",
+            vol.In(valid),
+            msg=hint,
+        ),
+    )
+
+
 @callback
-def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinator) -> None:
-    """Register camspeak services."""
+def _async_register_services(
+    hass: HomeAssistant,
+    coordinator: CamspeakCoordinator,
+    voices: list[str] | None = None,
+) -> None:
+    """Register camspeak services with dynamic voice validation."""
+    if voices is None:
+        voices = coordinator.data.voices if coordinator.data else []
+    voice_vol = _voice_validator(voices)
     client = coordinator.client
 
     async def _async_broadcast(call: ServiceCall) -> dict[str, Any]:
@@ -158,7 +188,7 @@ def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinat
                 {
                     **cv.ENTITY_SERVICE_FIELDS,
                     vol.Required("text"): cv.string,
-                    vol.Optional("voice"): cv.string,
+                    vol.Optional("voice"): voice_vol,
                     vol.Optional("gain"): vol.Coerce(float),
                 }
             ),
@@ -204,7 +234,7 @@ def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinat
                     vol.Optional("text"): cv.string,
                     vol.Optional("preset"): cv.string,
                     vol.Optional("category"): cv.string,
-                    vol.Optional("voice"): cv.string,
+                    vol.Optional("voice"): voice_vol,
                     vol.Optional("gain"): vol.Coerce(float),
                 }
             ),
