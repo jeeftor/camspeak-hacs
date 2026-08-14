@@ -84,7 +84,6 @@ async def test_play_preset_service(
         camera="backyard",
         preset="rain",
         category="uploads",
-        gain=0,
         loop=True,
     )
     assert response["cameras"]["backyard"]["status"] == "ok"

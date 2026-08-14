@@ -9,6 +9,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import pytest
 
+from custom_components.camspeak.api import CamspeakApiClientError
 from custom_components.camspeak.const import CONF_URL, CONF_VERIFY_SSL, DOMAIN
 
 ZEROCONF_DISCOVERY = ZeroconfServiceInfo(
@@ -110,7 +111,7 @@ async def test_user_flow_cannot_connect(
     mock_camspeak_client: AsyncMock,
 ) -> None:
     """Test user flow with connection error."""
-    mock_camspeak_client.health.side_effect = Exception("connection refused")
+    mock_camspeak_client.health.side_effect = CamspeakApiClientError("connection refused")
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,

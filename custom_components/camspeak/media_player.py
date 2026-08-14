@@ -46,6 +46,19 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{camera_name}_media_player"
         self._attr_name = "speaker"
 
+    @property
+    def available(self) -> bool:
+        """Return if entity is available.
+
+        Overrides CoordinatorEntity.available to also consider camera online status.
+        """
+        if not self.coordinator.last_update_success:
+            return False
+        data = self.coordinator.data
+        if not data or self._camera_name not in data.cameras:
+            return False
+        return data.cameras[self._camera_name].camera.get("online", False)
+
     @override
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -56,7 +69,6 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
         """Update entity state from coordinator data."""
         data = self.coordinator.data
         if not data or self._camera_name not in data.cameras:
-            self._attr_available = False
             return
 
         cam_data = data.cameras[self._camera_name]
@@ -64,10 +76,8 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
         playback = cam_data.playback
 
         if not cam.get("online", False):
-            self._attr_available = False
             return
 
-        self._attr_available = True
         state = playback.get("state", PLAYBACK_IDLE)
         if state == PLAYBACK_PLAYING:
             self._attr_state = MediaPlayerState.PLAYING
@@ -152,4 +162,3 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
             )
         self._attr_volume_level = volume
         self.async_write_ha_state()
-        await self.coordinator.async_request_refresh()

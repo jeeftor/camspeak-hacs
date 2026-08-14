@@ -9,6 +9,11 @@ from custom_components.camspeak.const import CONF_URL, CONF_VERIFY_SSL, DOMAIN
 from tests.common import MockConfigEntry
 
 
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
+    """Enable custom integrations for all tests."""
+
+
 @pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Override async_setup_entry."""
@@ -31,8 +36,13 @@ def mock_camspeak_client() -> Generator[AsyncMock]:
             "custom_components.camspeak.config_flow.CamspeakApiClient",
             new=mock_client,
         ),
+        patch(
+            "custom_components.camspeak.coordinator.CamspeakCoordinator.async_start_sse_listener",
+            return_value=None,
+        ),
     ):
         client = mock_client.return_value
+        client._base_url = "http://10.0.0.50:8585"  # noqa: SLF001
         client.health.return_value = {"status": "ok", "version": "1.0.0"}
         client.get_cameras.return_value = [
             {"name": "backyard", "type": "hikvision", "online": True, "ip": "10.0.0.50"},

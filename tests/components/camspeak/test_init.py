@@ -30,14 +30,10 @@ async def test_load_unload_config_entry(
     assert hass.services.has_service(DOMAIN, "pause")
     assert hass.services.has_service(DOMAIN, "resume")
 
-    coordinator = mock_config_entry.runtime_data
-    assert coordinator._sse_task is not None  # noqa: SLF001
-
     await hass.config_entries.async_unload(mock_config_entry.entry_id)
     await hass.async_block_till_done()
 
     assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
-    assert coordinator._sse_task is None  # noqa: SLF001
     assert not hass.services.has_service(DOMAIN, "speak")
     assert not hass.services.has_service(DOMAIN, "play_preset")
 

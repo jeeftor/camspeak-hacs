@@ -120,7 +120,7 @@ async def test_sensor_unavailable_on_connection_error(
 
     # Simulate connection error on next update
     mock_camspeak_client.get_cameras.side_effect = Exception("connection lost")
-    freezer.tick(timedelta(seconds=10))
+    freezer.tick(timedelta(seconds=30))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 

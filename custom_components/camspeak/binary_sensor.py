@@ -1,5 +1,7 @@
 """Binary sensor platform for camspeak cameras."""
 
+from typing import override
+
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
@@ -36,12 +38,23 @@ class CamspeakOnlineSensor(CamspeakEntity, BinarySensorEntity):
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{camera_name}_online"
         self._attr_name = "online"
 
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data."""
+    @override
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        await super().async_added_to_hass()
+        self._update_state()
+
+    def _update_state(self) -> None:
+        """Update entity state from coordinator data."""
         data = self.coordinator.data
         if not data or self._camera_name not in data.cameras:
             self._attr_is_on = False
         else:
             cam = data.cameras[self._camera_name].camera
             self._attr_is_on = cam.get("online", False)
+
+    @override
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data."""
+        self._update_state()
         self.async_write_ha_state()

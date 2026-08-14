@@ -5,7 +5,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, callback
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
@@ -99,10 +99,10 @@ async def _async_resolve_cameras(hass: HomeAssistant, call: ServiceCall) -> list
 def _make_per_camera_handler(
     hass: HomeAssistant,
     api_call: Callable[..., Awaitable[dict[str, Any]]],
-) -> Callable[[ServiceCall], Awaitable[ServiceResponse]]:
+) -> Callable[[ServiceCall], Awaitable[dict[str, Any]]]:
     """Create a service handler that resolves targets and calls the API per camera."""
 
-    async def handler(call: ServiceCall) -> ServiceResponse:
+    async def handler(call: ServiceCall) -> dict[str, Any]:
         cameras = await _async_resolve_cameras(hass, call)
         if not cameras:
             raise ServiceValidationError("No cameras selected — specify entity_id or target")
@@ -118,10 +118,10 @@ def _make_per_camera_handler(
 def _make_all_or_camera_handler(
     hass: HomeAssistant,
     api_call: Callable[..., Awaitable[dict[str, Any]]],
-) -> Callable[[ServiceCall], Awaitable[ServiceResponse]]:
+) -> Callable[[ServiceCall], Awaitable[dict[str, Any]]]:
     """Create a handler that calls API per camera, or all if no target."""
 
-    async def handler(call: ServiceCall) -> ServiceResponse:
+    async def handler(call: ServiceCall) -> dict[str, Any]:
         cameras = await _async_resolve_cameras(hass, call)
         if cameras:
             results: dict[str, Any] = {}
@@ -138,7 +138,7 @@ def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinat
     """Register camspeak services."""
     client = coordinator.client
 
-    async def _async_broadcast(call: ServiceCall) -> ServiceResponse:
+    async def _async_broadcast(call: ServiceCall) -> dict[str, Any]:
         text = call.data.get("text", "")
         preset = call.data.get("preset", "")
         if not text and not preset:
@@ -231,7 +231,7 @@ def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinat
     }
 
     for name, (handler, schema, supports_response) in services.items():
-        response = ServiceResponse.OPTIONAL if supports_response else ServiceResponse.NONE
+        response = SupportsResponse.OPTIONAL if supports_response else SupportsResponse.NONE
         hass.services.async_register(
             DOMAIN,
             name,
