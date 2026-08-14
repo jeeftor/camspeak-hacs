@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/camspeak-mark.svg" alt="camspeak" width="120">
+  <img src="https://raw.githubusercontent.com/jeeftor/camspeak-hacs/master/assets/camspeak-mark.svg" alt="camspeak" width="120">
 </p>
 
 # Camspeak Home Assistant Integration
