@@ -147,18 +147,13 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
 
     @override
     async def async_set_volume_level(self, volume: float) -> None:
-        """Set volume level (maps to camera gain 0-10)."""
+        """Set volume level (maps to camera gain 0-10).
+
+        Uses the dedicated volume endpoint which updates the runtime gain
+        in real-time — the next audio chunk picks up the new volume without
+        restarting playback.
+        """
         gain = round(volume * 10, 1)
-        cam_data = self.coordinator.data.cameras.get(self._camera_name)
-        if cam_data:
-            cam = cam_data.camera
-            await self.coordinator.client.update_camera(
-                {
-                    "name": self._camera_name,
-                    "ip": cam.get("ip", ""),
-                    "type": cam.get("type", "hikvision"),
-                    "gain": gain,
-                }
-            )
+        await self.coordinator.client.set_volume(self._camera_name, gain)
         self._attr_volume_level = volume
         self.async_write_ha_state()

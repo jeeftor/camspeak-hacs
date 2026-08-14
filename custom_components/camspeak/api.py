@@ -74,6 +74,16 @@ class CamspeakApiClient:
         """POST /api/config/cameras — add or update a camera."""
         return await self._request("POST", "/api/config/cameras", json_data=camera)
 
+    async def set_volume(self, camera: str, gain: float) -> dict[str, Any]:
+        """PUT /api/cameras/:name/volume — set runtime gain (0-10).
+
+        Takes effect immediately on the next audio chunk without restarting
+        playback. Also persists to camera config.
+        """
+        return await self._request(
+            "PUT", f"/api/cameras/{camera}/volume", json_data={"gain": gain}
+        )
+
     async def play_preset(
         self,
         camera: str,

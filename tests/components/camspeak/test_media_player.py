@@ -271,7 +271,7 @@ async def test_media_player_set_volume(
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
 ) -> None:
-    """Test setting volume level calls the API to update gain."""
+    """Test setting volume level calls the volume API endpoint."""
     await setup_integration(hass, mock_config_entry)
 
     await hass.services.async_call(
@@ -280,10 +280,10 @@ async def test_media_player_set_volume(
         {"entity_id": MEDIA_PLAYER_ENTITY, "volume_level": 0.5},
         blocking=True,
     )
-    mock_camspeak_client.update_camera.assert_called_once()
-    call_args = mock_camspeak_client.update_camera.call_args[0][0]
-    assert call_args["name"] == "backyard"
-    assert call_args["gain"] == 5.0  # noqa: PLR2004
+    mock_camspeak_client.set_volume.assert_called_once()
+    call_args = mock_camspeak_client.set_volume.call_args
+    assert call_args.args[0] == "backyard"
+    assert call_args.args[1] == 5.0  # noqa: PLR2004
     state = hass.states.get(MEDIA_PLAYER_ENTITY)
     assert state.attributes.get("volume_level") == 0.5  # noqa: PLR2004
 
