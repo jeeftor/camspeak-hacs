@@ -145,6 +145,7 @@ async def test_broadcast_service(
     mock_camspeak_client.broadcast.assert_called_once_with(
         text="Attention all cameras",
         preset="",
+        category="",
         voice="af_sky",
         gain=0,
     )

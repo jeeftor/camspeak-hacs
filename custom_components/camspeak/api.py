@@ -111,6 +111,7 @@ class CamspeakApiClient:
         self,
         text: str = "",
         preset: str = "",
+        category: str = "",
         voice: str = "",
         gain: float = 0,
     ) -> dict[str, Any]:
@@ -120,6 +121,8 @@ class CamspeakApiClient:
             data["text"] = text
         if preset:
             data["preset"] = preset
+        if category:
+            data["category"] = category
         if voice:
             data["voice"] = voice
         if gain > 0:

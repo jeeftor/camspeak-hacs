@@ -148,6 +148,13 @@ broadcast:
       example: dog
       selector:
         text:
+    category:
+      name: Category
+      description: Preset category (leave empty to search all categories)
+      required: false
+      example: uploads
+      selector:
+        text:
     voice:
       name: Voice
       description: TTS voice to use (leave empty for default)

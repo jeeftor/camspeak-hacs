@@ -146,6 +146,7 @@ def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinat
         return await client.broadcast(
             text=text,
             preset=preset,
+            category=call.data.get("category", ""),
             voice=call.data.get("voice", ""),
             gain=call.data.get("gain", 0),
         )
@@ -202,6 +203,7 @@ def _async_register_services(hass: HomeAssistant, coordinator: CamspeakCoordinat
                 {
                     vol.Optional("text"): cv.string,
                     vol.Optional("preset"): cv.string,
+                    vol.Optional("category"): cv.string,
                     vol.Optional("voice"): cv.string,
                     vol.Optional("gain"): vol.Coerce(float),
                 }
