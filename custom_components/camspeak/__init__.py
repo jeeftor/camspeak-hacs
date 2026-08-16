@@ -97,9 +97,20 @@ async def _async_resolve_cameras(hass: HomeAssistant, call: ServiceCall) -> list
     referenced = target_helpers.async_extract_referenced_entity_ids(
         hass, target_selection, expand_group=True
     )
-    if not referenced.referenced:
+    entity_ids = referenced.referenced | referenced.indirectly_referenced
+    if not entity_ids:
         return []
-    return [_resolve_camera_name(hass, eid) for eid in referenced.referenced]
+    cameras: set[str] = set()
+    for eid in entity_ids:
+        if not eid.startswith("media_player."):
+            continue
+        try:
+            cameras.add(_resolve_camera_name(hass, eid))
+        except HomeAssistantError:
+            # Skip non-camspeak media players that may be included via
+            # device/area/label expansion.
+            continue
+    return list(cameras)
 
 
 def _make_per_camera_handler(
