@@ -1,8 +1,10 @@
 """Tests for the camspeak media player platform."""
 
-from unittest.mock import AsyncMock
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.components.media_player import (
+    DATA_COMPONENT,
     MediaPlayerState,
 )
 from homeassistant.const import STATE_UNAVAILABLE
@@ -303,3 +305,197 @@ async def test_media_player_unavailable_when_offline(
 
     state = hass.states.get(MEDIA_PLAYER_ENTITY)
     assert state.state == STATE_UNAVAILABLE
+
+
+def _get_media_player_entity(hass: HomeAssistant) -> Any:
+    """Return the camspeak media player entity."""
+    return hass.data[DATA_COMPONENT].get_entity(MEDIA_PLAYER_ENTITY)
+
+
+async def test_media_player_browse_media_root(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test browsing the camspeak library root returns categories."""
+    await setup_integration(hass, mock_config_entry)
+
+    entity = _get_media_player_entity(hass)
+    result = await entity.async_browse_media()
+
+    assert result.title == "Camspeak Library"
+    assert len(result.children) == 2  # noqa: PLR2004
+    assert result.children[0].title == "Default"
+    assert result.children[0].media_content_id == "camspeak://library/default"
+    assert result.children[1].title == "Uploads"
+
+
+async def test_media_player_browse_media_category(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test browsing a category returns its presets."""
+    await setup_integration(hass, mock_config_entry)
+
+    entity = _get_media_player_entity(hass)
+    result = await entity.async_browse_media(media_content_id="camspeak://library/uploads")
+
+    assert result.title == "Uploads"
+    assert len(result.children) == 1
+    assert result.children[0].title == "rain (15.9s)"
+    assert result.children[0].media_content_id == "camspeak://preset/rain"
+    assert result.children[0].can_play is True
+    assert result.children[0].can_expand is False
+
+
+async def test_media_player_play_media_url_from_music(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test that a URL sent as music type is routed to play_url."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": MEDIA_PLAYER_ENTITY,
+            "media_content_type": "music",
+            "media_content_id": "https://example.com/sound.mp3",
+        },
+        blocking=True,
+    )
+    mock_camspeak_client.play_url.assert_called_once_with(
+        camera="backyard", url="https://example.com/sound.mp3"
+    )
+    mock_camspeak_client.play_stream.assert_not_called()
+
+
+async def test_media_player_play_media_stream_auto(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test that a .m3u URL is auto-routed to play_stream."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": MEDIA_PLAYER_ENTITY,
+            "media_content_type": "url",
+            "media_content_id": "http://stream.example.com/playlist.m3u",
+        },
+        blocking=True,
+    )
+    mock_camspeak_client.play_stream.assert_called_once_with(
+        camera="backyard", url="http://stream.example.com/playlist.m3u"
+    )
+    mock_camspeak_client.play_url.assert_not_called()
+
+
+async def test_media_player_play_media_camspeak_preset(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test that a camspeak://preset/ URI is routed to play_preset."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": MEDIA_PLAYER_ENTITY,
+            "media_content_type": "music",
+            "media_content_id": "camspeak://preset/rain",
+        },
+        blocking=True,
+    )
+    mock_camspeak_client.play_preset.assert_called_once_with(camera="backyard", preset="rain")
+
+
+async def test_media_player_play_media_media_source(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test that a media-source:// URI is resolved and routed to play_url."""
+    await setup_integration(hass, mock_config_entry)
+
+    resolved = MagicMock()
+    resolved.url = "/media/song.mp3"
+    resolved.mime_type = "audio/mpeg"
+
+    with (
+        patch(
+            "custom_components.camspeak.media_player.media_source.is_media_source_id",
+            return_value=True,
+        ),
+        patch(
+            "custom_components.camspeak.media_player.media_source.async_resolve_media",
+            new_callable=AsyncMock,
+            return_value=resolved,
+        ) as mock_resolve,
+        patch(
+            "custom_components.camspeak.media_player.async_process_play_media_url",
+            return_value="http://ha:8123/media/song.mp3",
+        ),
+    ):
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": MEDIA_PLAYER_ENTITY,
+                "media_content_type": "audio/mpeg",
+                "media_content_id": "media-source://media_source/local/song.mp3",
+            },
+            blocking=True,
+        )
+        mock_resolve.assert_awaited_once()
+
+    mock_camspeak_client.play_url.assert_called_once_with(
+        camera="backyard", url="http://ha:8123/media/song.mp3"
+    )
+
+
+async def test_media_player_play_media_radio_browser(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test that a media-source://radio_browser/ URI is routed to play_stream."""
+    await setup_integration(hass, mock_config_entry)
+
+    resolved = MagicMock()
+    resolved.url = "http://stream.example.com:8000/live"
+    resolved.mime_type = "audio/mpeg"
+
+    with (
+        patch(
+            "custom_components.camspeak.media_player.media_source.async_resolve_media",
+            new_callable=AsyncMock,
+            return_value=resolved,
+        ),
+        patch(
+            "custom_components.camspeak.media_player.async_process_play_media_url",
+            return_value="http://stream.example.com:8000/live",
+        ),
+    ):
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": MEDIA_PLAYER_ENTITY,
+                "media_content_type": "audio/mpeg",
+                "media_content_id": "media-source://radio_browser/abc-123",
+            },
+            blocking=True,
+        )
+
+    mock_camspeak_client.play_stream.assert_called_once_with(
+        camera="backyard", url="http://stream.example.com:8000/live"
+    )

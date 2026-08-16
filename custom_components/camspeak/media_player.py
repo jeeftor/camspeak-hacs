@@ -1,12 +1,17 @@
 """Media player platform for camspeak cameras."""
 
+import re
 from typing import Any, override
 
+from homeassistant.components import media_source
 from homeassistant.components.media_player import (
+    BrowseMedia,
+    MediaClass,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
     MediaType,
+    async_process_play_media_url,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -15,6 +20,29 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING
 from .coordinator import CamspeakCoordinator
 from .entity import CamspeakEntity
+
+_CAMSPEAK_PRESET_PREFIX = "camspeak://preset/"
+_CAMSPEAK_LIBRARY_PREFIX = "camspeak://library/"
+
+_STREAM_MIME_PREFIXES = (
+    "audio/x-mpegurl",
+    "audio/x-scpls",
+    "application/x-mpegurl",
+    "application/vnd.apple.mpegurl",
+)
+_STREAM_HINTS = ("liveatc.net", "/play/", "shoutcast", "icecast")
+_STREAM_EXTENSIONS = (".pls", ".m3u", ".m3u8")
+
+_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+_MEDIA_SOURCE_RE = re.compile(r"^media-source://")
+
+
+def _media_source_domain(media_id: str) -> str | None:
+    """Extract the domain from a media-source:// URI."""
+    if not _MEDIA_SOURCE_RE.match(media_id):
+        return None
+    parts = media_id[len("media-source://") :].split("/", 1)
+    return parts[0] if parts and parts[0] else None
 
 
 async def async_setup_entry(
@@ -38,6 +66,7 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
         | MediaPlayerEntityFeature.PLAY_MEDIA
         | MediaPlayerEntityFeature.SELECT_SOURCE
         | MediaPlayerEntityFeature.VOLUME_SET
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
     )
 
     def __init__(self, coordinator: CamspeakCoordinator, camera_name: str) -> None:
@@ -108,16 +137,60 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
 
         media_type determines how camspeak handles it:
         - "music" or "preset": play a saved preset by name
-        - "url": download audio file, transcode, play
-        - "stream": stream live audio from URL/playlist
+        - "url" or a URL with a file: download audio file, transcode, play
+        - "stream" or a URL that looks like a live stream/playlist: stream
+        - HA media-source:// URIs are resolved to a signed URL first
         """
-        if media_type in ("url",):
-            await self.coordinator.client.play_url(camera=self._camera_name, url=media_id)
-        elif media_type in ("stream",):
-            await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
+        media_source_domain = _media_source_domain(media_id)
+        if media_source_domain:
+            sourced_media = await media_source.async_resolve_media(
+                self.hass, media_id, self.entity_id
+            )
+            media_id = async_process_play_media_url(self.hass, sourced_media.url)
+            media_type = sourced_media.mime_type or MediaType.MUSIC
+            # Some media sources are known to be live streams (e.g. Radio Browser)
+            if media_source_domain == "radio_browser":
+                await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
+                await self.coordinator.async_request_refresh()
+                return
+
+        if media_id.startswith(_CAMSPEAK_PRESET_PREFIX):
+            preset = media_id[len(_CAMSPEAK_PRESET_PREFIX) :]
+            await self.coordinator.client.play_preset(camera=self._camera_name, preset=preset)
+        elif _is_url(media_id):
+            if _looks_like_stream(media_id, media_type):
+                await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
+            else:
+                await self.coordinator.client.play_url(camera=self._camera_name, url=media_id)
         else:
             await self.coordinator.client.play_preset(camera=self._camera_name, preset=media_id)
         await self.coordinator.async_request_refresh()
+
+    @override
+    async def async_browse_media(
+        self,
+        media_content_type: str | None = None,
+        media_content_id: str | None = None,
+    ) -> BrowseMedia:
+        """Return a BrowseMedia instance for the camspeak library."""
+        if media_content_id and media_source.is_media_source_id(media_content_id):
+            return await media_source.async_browse_media(
+                self.hass,
+                media_content_id,
+                content_filter=_audio_content_filter,
+            )
+
+        data = self.coordinator.data
+        if not data or self._camera_name not in data.cameras:
+            return _root_browse([])
+
+        presets = data.cameras[self._camera_name].presets
+
+        if media_content_id and media_content_id.startswith(_CAMSPEAK_LIBRARY_PREFIX):
+            category = media_content_id[len(_CAMSPEAK_LIBRARY_PREFIX) :]
+            return _category_browse(category, presets)
+
+        return _root_browse(presets, categories=data.categories)
 
     @override
     async def async_media_pause(self) -> None:
@@ -157,3 +230,89 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
         await self.coordinator.client.set_volume(self._camera_name, gain)
         self._attr_volume_level = volume
         self.async_write_ha_state()
+
+
+def _is_url(media_id: str) -> bool:
+    """Return True if media_id is an http(s) URL."""
+    return bool(_URL_RE.match(media_id))
+
+
+def _looks_like_stream(media_id: str, media_type: str | None = None) -> bool:
+    """Return True if media_id looks like a live stream or playlist."""
+    if media_type:
+        media_type_str = media_type.lower()
+        if media_type_str == "stream" or media_type_str in _STREAM_MIME_PREFIXES:
+            return True
+        if media_type_str == MediaType.PLAYLIST:
+            return True
+    s = media_id.lower()
+    return s.endswith(_STREAM_EXTENSIONS) or any(hint in s for hint in _STREAM_HINTS)
+
+
+def _audio_content_filter(item: BrowseMedia) -> bool:
+    """Filter HA media source items to audio."""
+    return bool(item.media_content_type and item.media_content_type.startswith("audio/"))
+
+
+def _preset_browse_item(preset: dict[str, Any]) -> BrowseMedia:
+    """Return a BrowseMedia item for a camspeak preset."""
+    name = preset["name"]
+    title = f"{name} ({preset['duration']}s)" if preset.get("duration") else name
+    return BrowseMedia(
+        title=title,
+        media_class=MediaClass.MUSIC,
+        media_content_id=f"{_CAMSPEAK_PRESET_PREFIX}{name}",
+        media_content_type=MediaType.MUSIC,
+        can_play=True,
+        can_expand=False,
+    )
+
+
+def _category_browse(category: str, presets: list[dict[str, Any]]) -> BrowseMedia:
+    """Return a BrowseMedia instance for a category."""
+    children = [
+        _preset_browse_item(preset) for preset in presets if preset.get("category", "") == category
+    ]
+    return BrowseMedia(
+        title=category.title() or "Camspeak Library",
+        media_class=MediaClass.DIRECTORY,
+        media_content_id=f"{_CAMSPEAK_LIBRARY_PREFIX}{category}",
+        media_content_type=MediaType.MUSIC,
+        can_play=False,
+        can_expand=True,
+        children=children,
+    )
+
+
+def _root_browse(
+    presets: list[dict[str, Any]],
+    categories: list[str] | None = None,
+) -> BrowseMedia:
+    """Return the root BrowseMedia instance for camspeak."""
+    children: list[BrowseMedia]
+    categories = categories or []
+
+    if categories:
+        children = [
+            BrowseMedia(
+                title=category.title(),
+                media_class=MediaClass.DIRECTORY,
+                media_content_id=f"{_CAMSPEAK_LIBRARY_PREFIX}{category}",
+                media_content_type=MediaType.MUSIC,
+                can_play=False,
+                can_expand=True,
+            )
+            for category in categories
+        ]
+    else:
+        children = [_preset_browse_item(preset) for preset in presets]
+
+    return BrowseMedia(
+        title="Camspeak Library",
+        media_class=MediaClass.DIRECTORY,
+        media_content_id="",
+        media_content_type=MediaType.MUSIC,
+        can_play=False,
+        can_expand=True,
+        children=children,
+    )
