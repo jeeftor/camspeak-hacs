@@ -28,6 +28,7 @@ _REFRESH_ACTIONS = frozenset(
         "play",
         "play-stream",
         "play-url",
+        "describe",
         "stop",
         "stop-all",
         "pause",

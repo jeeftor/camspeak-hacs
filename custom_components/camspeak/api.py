@@ -117,11 +117,13 @@ class CamspeakApiClient:
 
     async def broadcast(
         self,
+        *,
         text: str = "",
         preset: str = "",
         category: str = "",
         voice: str = "",
         gain: float = 0,
+        loop: bool = False,
     ) -> dict[str, Any]:
         """POST /api/broadcast."""
         data: dict[str, Any] = {}
@@ -135,19 +137,23 @@ class CamspeakApiClient:
             data["voice"] = voice
         if gain > 0:
             data["gain"] = gain
+        if loop:
+            data["loop"] = True
         return await self._request("POST", "/api/broadcast", json_data=data)
 
-    async def play_stream(self, camera: str, url: str) -> dict[str, Any]:
+    async def play_stream(self, camera: str, url: str, gain: float = 0) -> dict[str, Any]:
         """POST /api/play-stream."""
-        return await self._request(
-            "POST", "/api/play-stream", json_data={"camera": camera, "url": url}
-        )
+        data: dict[str, Any] = {"camera": camera, "url": url}
+        if gain > 0:
+            data["gain"] = gain
+        return await self._request("POST", "/api/play-stream", json_data=data)
 
-    async def play_url(self, camera: str, url: str) -> dict[str, Any]:
+    async def play_url(self, camera: str, url: str, gain: float = 0) -> dict[str, Any]:
         """POST /api/play-url."""
-        return await self._request(
-            "POST", "/api/play-url", json_data={"camera": camera, "url": url}
-        )
+        data: dict[str, Any] = {"camera": camera, "url": url}
+        if gain > 0:
+            data["gain"] = gain
+        return await self._request("POST", "/api/play-url", json_data=data)
 
     async def beep(self, camera: str) -> dict[str, Any]:
         """POST /api/beep."""

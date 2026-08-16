@@ -95,6 +95,17 @@ play_stream:
       example: "http://stream.example.com:8000/live"
       selector:
         text:
+    gain:
+      name: Gain
+      description: Volume gain (0-10, leave empty for camera default)
+      required: false
+      example: 3.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+          mode: slider
   response:
     optional:
       description: "Returns playback status"
@@ -114,6 +125,17 @@ play_url:
       example: "https://example.com/sound.mp3"
       selector:
         text:
+    gain:
+      name: Gain
+      description: Volume gain (0-10, leave empty for camera default)
+      required: false
+      example: 3.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+          mode: slider
   response:
     optional:
       description: "Returns timing data and playback status"
@@ -162,6 +184,13 @@ broadcast:
           max: 10
           step: 0.1
           mode: slider
+    loop:
+      name: Loop
+      description: Loop the preset infinitely (only when using a preset)
+      required: false
+      default: false
+      selector:
+        boolean:
   response:
     optional:
       description: "Returns list of cameras that succeeded"

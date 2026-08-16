@@ -40,7 +40,7 @@ async def test_playback_sensor_playing(
             "state": "playing",
             "source": "play",
             "detail": "rain",
-            "started": "2026-01-01T00:00:00Z",
+            "started_at": "2026-01-01T00:00:00Z",
         },
         "frontyard": {"state": "idle", "source": "", "detail": ""},
     }
@@ -51,7 +51,7 @@ async def test_playback_sensor_playing(
     assert state.state == "playing"
     assert state.attributes["source"] == "play"
     assert state.attributes["detail"] == "rain"
-    assert state.attributes["started"] == "2026-01-01T00:00:00Z"
+    assert state.attributes["started_at"] == "2026-01-01T00:00:00Z"
 
 
 async def test_playback_sensor_paused(
@@ -65,7 +65,7 @@ async def test_playback_sensor_paused(
             "state": "paused",
             "source": "stream",
             "detail": "http://stream.example.com/live",
-            "started": "2026-01-01T00:00:00Z",
+            "started_at": "2026-01-01T00:00:00Z",
             "paused_at": "2026-01-01T00:05:00Z",
         },
         "frontyard": {"state": "idle", "source": "", "detail": ""},

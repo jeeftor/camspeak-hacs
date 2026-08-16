@@ -109,6 +109,25 @@ async def test_play_stream_service(
     )
 
 
+async def test_play_stream_service_with_gain(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test the play_stream service passes gain."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "camspeak",
+        "play_stream",
+        {"entity_id": MEDIA_PLAYER_ENTITY, "url": "http://stream.example.com/live", "gain": 5.0},
+        blocking=True,
+    )
+    mock_camspeak_client.play_stream.assert_called_once_with(
+        camera="backyard", url="http://stream.example.com/live", gain=5.0
+    )
+
+
 async def test_play_url_service(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
@@ -125,6 +144,25 @@ async def test_play_url_service(
     )
     mock_camspeak_client.play_url.assert_called_once_with(
         camera="backyard", url="https://example.com/sound.mp3"
+    )
+
+
+async def test_play_url_service_with_gain(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test the play_url service passes gain."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "camspeak",
+        "play_url",
+        {"entity_id": MEDIA_PLAYER_ENTITY, "url": "https://example.com/sound.mp3", "gain": 4.5},
+        blocking=True,
+    )
+    mock_camspeak_client.play_url.assert_called_once_with(
+        camera="backyard", url="https://example.com/sound.mp3", gain=4.5
     )
 
 
@@ -152,6 +190,31 @@ async def test_broadcast_service(
     )
     assert response["status"] == "ok"
     assert "backyard" in response["succeeded"]
+
+
+async def test_broadcast_loop_service(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_camspeak_client: AsyncMock,
+) -> None:
+    """Test the broadcast service passes loop for presets."""
+    await setup_integration(hass, mock_config_entry)
+
+    await hass.services.async_call(
+        "camspeak",
+        "broadcast",
+        {"preset": "dog", "category": "alerts", "loop": True},
+        blocking=True,
+        return_response=True,
+    )
+    mock_camspeak_client.broadcast.assert_called_once_with(
+        text="",
+        preset="dog",
+        category="alerts",
+        voice="",
+        gain=0,
+        loop=True,
+    )
 
 
 async def test_broadcast_no_text_or_preset_raises(

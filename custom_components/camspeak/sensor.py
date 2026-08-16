@@ -63,7 +63,7 @@ class CamspeakPlaybackSensor(CamspeakSensor):
             self._attr_extra_state_attributes = {
                 "source": playback.get("source", ""),
                 "detail": playback.get("detail", ""),
-                "started": playback.get("started", ""),
+                "started_at": playback.get("started_at", ""),
                 "paused_at": playback.get("paused_at", ""),
             }
 

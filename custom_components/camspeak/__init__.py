@@ -184,13 +184,17 @@ def _async_register_services(
         preset = call.data.get("preset", "")
         if not text and not preset:
             raise ServiceValidationError("Either text or preset is required for broadcast")
-        return await client.broadcast(
-            text=text,
-            preset=preset,
-            category=call.data.get("category", ""),
-            voice=call.data.get("voice", ""),
-            gain=call.data.get("gain", 0),
-        )
+        loop = call.data.get("loop", False)
+        kwargs: dict[str, Any] = {
+            "text": text,
+            "preset": preset,
+            "category": call.data.get("category", ""),
+            "voice": call.data.get("voice", ""),
+            "gain": call.data.get("gain", 0),
+        }
+        if loop:
+            kwargs["loop"] = True
+        return await client.broadcast(**kwargs)
 
     services: dict[str, tuple[Callable, vol.Schema, bool]] = {
         "speak": (
@@ -224,6 +228,7 @@ def _async_register_services(
                 {
                     **cv.ENTITY_SERVICE_FIELDS,
                     vol.Required("url"): cv.string,
+                    vol.Optional("gain"): vol.Coerce(float),
                 }
             ),
             True,
@@ -234,6 +239,7 @@ def _async_register_services(
                 {
                     **cv.ENTITY_SERVICE_FIELDS,
                     vol.Required("url"): cv.string,
+                    vol.Optional("gain"): vol.Coerce(float),
                 }
             ),
             True,
@@ -247,6 +253,7 @@ def _async_register_services(
                     vol.Optional("category"): cv.string,
                     vol.Optional("voice"): voice_vol,
                     vol.Optional("gain"): vol.Coerce(float),
+                    vol.Optional("loop"): bool,
                 }
             ),
             True,
