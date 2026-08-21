@@ -78,9 +78,7 @@ class CamspeakApiClient:
             payload["voice"] = voice
         try:
             async with (
-                self._session.post(
-                    url, json=payload, timeout=ClientTimeout(total=60)
-                ) as resp,
+                self._session.post(url, json=payload, timeout=ClientTimeout(total=60)) as resp,
             ):
                 if resp.status >= 400:  # noqa: PLR2004
                     text_resp = await resp.text()

@@ -144,7 +144,7 @@ class CamspeakMediaSource(MediaSource):
 
     @staticmethod
     def _preset_item(preset: dict[str, Any]) -> BrowseMediaSource:
-        """Build a browseable leaf node for a single preset."""
+        """Build a browsable leaf node for a single preset."""
         name = preset["name"]
         duration = preset.get("duration")
         title = f"{name} ({duration}s)" if duration else name
