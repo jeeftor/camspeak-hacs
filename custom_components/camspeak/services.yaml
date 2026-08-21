@@ -71,11 +71,15 @@ play_preset:
           mode: slider
     loop:
       name: Loop
-      description: Loop the preset infinitely (pausable)
+      description: "Loop count: -1 = infinite (pausable), 0 = no loop (default), N = play N+1 times"
       required: false
-      default: false
+      default: 0
       selector:
-        boolean:
+        number:
+          min: -1
+          max: 100
+          step: 1
+          mode: box
   response:
     optional:
       description: "Returns timing data and playback status"
@@ -186,11 +190,15 @@ broadcast:
           mode: slider
     loop:
       name: Loop
-      description: Loop the preset infinitely (only when using a preset)
+      description: "Loop count: -1 = infinite (only when using a preset), 0 = no loop (default), N = play N+1 times"
       required: false
-      default: false
+      default: 0
       selector:
-        boolean:
+        number:
+          min: -1
+          max: 100
+          step: 1
+          mode: box
   response:
     optional:
       description: "Returns list of cameras that succeeded"

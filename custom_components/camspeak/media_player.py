@@ -17,12 +17,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING
+from .const import DOMAIN, PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING
 from .coordinator import CamspeakCoordinator
 from .entity import CamspeakEntity
 
 _CAMSPEAK_PRESET_PREFIX = "camspeak://preset/"
 _CAMSPEAK_LIBRARY_PREFIX = "camspeak://library/"
+_CAMSPEAK_PREVIEW_RE = re.compile(r"/api/library/[^/]+/[^/]+/preview$")
 
 _STREAM_MIME_PREFIXES = (
     "audio/x-mpegurl",
@@ -151,6 +152,17 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
             # Some media sources are known to be live streams (e.g. Radio Browser)
             if media_source_domain == "radio_browser":
                 await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
+                await self.coordinator.async_request_refresh()
+                return
+            # Camspeak media source returns a WAV preview URL for browser
+            # playback. For camera playback, extract the preset name and
+            # use play_preset directly (avoids download + transcode round-trip).
+            if media_source_domain == DOMAIN and _CAMSPEAK_PREVIEW_RE.search(media_id):
+                # URL is /api/library/<category>/<name>/preview — extract name
+                preset_name = media_id.rstrip("/").rsplit("/", 2)[-2]
+                await self.coordinator.client.play_preset(
+                    camera=self._camera_name, preset=preset_name
+                )
                 await self.coordinator.async_request_refresh()
                 return
 

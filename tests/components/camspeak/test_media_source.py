@@ -69,17 +69,17 @@ async def test_media_source_resolve_preset(
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client,
 ) -> None:
-    """Test resolving a preset returns a camspeak://preset/ URI."""
+    """Test resolving a preset returns a WAV preview URL."""
     await setup_integration(hass, mock_config_entry)
     assert await async_setup_component(hass, MS_DOMAIN, {})
     await hass.async_block_till_done()
 
     play_media = await async_resolve_media(
-        hass, generate_media_source_id("camspeak", "preset/rain"), None
+        hass, generate_media_source_id("camspeak", "preset/uploads/rain"), None
     )
 
-    assert play_media.url == "camspeak://preset/rain"
-    assert play_media.mime_type == MediaType.MUSIC
+    assert play_media.url == "http://10.0.0.50:8585/api/library/uploads/rain/preview"
+    assert play_media.mime_type == "audio/wav"
 
 
 async def test_media_source_browse_invalid_identifier(

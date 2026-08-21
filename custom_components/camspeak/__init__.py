@@ -185,7 +185,7 @@ def _async_register_services(
         preset = call.data.get("preset", "")
         if not text and not preset:
             raise ServiceValidationError("Either text or preset is required for broadcast")
-        loop = call.data.get("loop", False)
+        loop = call.data.get("loop", 0)
         kwargs: dict[str, Any] = {
             "text": text,
             "preset": preset,
@@ -193,8 +193,8 @@ def _async_register_services(
             "voice": call.data.get("voice", ""),
             "gain": call.data.get("gain", 0),
         }
-        if loop:
-            kwargs["loop"] = True
+        if loop != 0:
+            kwargs["loop"] = loop
         return await client.broadcast(**kwargs)
 
     services: dict[str, tuple[Callable, vol.Schema, bool]] = {
@@ -218,7 +218,7 @@ def _async_register_services(
                     vol.Required("preset"): cv.string,
                     vol.Optional("category"): cv.string,
                     vol.Optional("gain"): vol.Coerce(float),
-                    vol.Optional("loop"): bool,
+                    vol.Optional("loop"): vol.Coerce(int),
                 }
             ),
             True,
@@ -254,7 +254,7 @@ def _async_register_services(
                     vol.Optional("category"): cv.string,
                     vol.Optional("voice"): voice_vol,
                     vol.Optional("gain"): vol.Coerce(float),
-                    vol.Optional("loop"): bool,
+                    vol.Optional("loop"): vol.Coerce(int),
                 }
             ),
             True,

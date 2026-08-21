@@ -111,7 +111,7 @@ class CamspeakApiClient:
         preset: str,
         category: str = "",
         gain: float = 0,
-        loop: bool = False,
+        loop: int = 0,
     ) -> dict[str, Any]:
         """POST /api/play."""
         data: dict[str, Any] = {"camera": camera, "preset": preset}
@@ -119,8 +119,8 @@ class CamspeakApiClient:
             data["category"] = category
         if gain > 0:
             data["gain"] = gain
-        if loop:
-            data["loop"] = True
+        if loop != 0:
+            data["loop"] = loop
         return await self._request("POST", "/api/play", json_data=data)
 
     async def speak(
@@ -146,7 +146,7 @@ class CamspeakApiClient:
         category: str = "",
         voice: str = "",
         gain: float = 0,
-        loop: bool = False,
+        loop: int = 0,
     ) -> dict[str, Any]:
         """POST /api/broadcast."""
         data: dict[str, Any] = {}
@@ -160,8 +160,8 @@ class CamspeakApiClient:
             data["voice"] = voice
         if gain > 0:
             data["gain"] = gain
-        if loop:
-            data["loop"] = True
+        if loop != 0:
+            data["loop"] = loop
         return await self._request("POST", "/api/broadcast", json_data=data)
 
     async def play_stream(self, camera: str, url: str, gain: float = 0) -> dict[str, Any]:

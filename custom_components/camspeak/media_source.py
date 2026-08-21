@@ -3,8 +3,9 @@
 Exposes the camspeak preset library as a top-level browsable source in
 Home Assistant's Media browser, so users can browse presets without first
 selecting a specific camera entity. When a preset is selected, HA resolves
-the media-source URI to a ``camspeak://preset/<name>`` URI, which the
-media player's ``async_play_media`` already routes to ``play_preset``.
+the media-source URI to a WAV preview URL (``/api/library/<category>/<name>/preview``)
+that browsers can play. The media player's ``async_play_media`` detects
+this URL and routes to ``play_preset`` for direct camera playback.
 """
 
 from typing import Any
@@ -23,6 +24,7 @@ from .coordinator import CamspeakCoordinator
 
 _CATEGORY_PREFIX = "category/"
 _PRESET_PREFIX = "preset/"
+_IDENTIFIER_PARTS = 2
 
 
 async def async_get_media_source(hass: HomeAssistant) -> MediaSource:
@@ -48,16 +50,25 @@ class CamspeakMediaSource(MediaSource):
     async def async_resolve_media(self, item: MediaSourceItem) -> PlayMedia:
         """Resolve a preset media item to a playable URI.
 
-        Returns a ``camspeak://preset/<name>`` URI that the media player's
-        ``async_play_media`` routes to the ``play_preset`` API call.
+        Returns a WAV preview URL (``/api/library/<category>/<name>/preview``)
+        that browsers can play. The media player's ``async_play_media`` detects
+        the preview URL pattern and routes to ``play_preset`` for direct
+        camera playback (avoids download + transcode round-trip).
         """
         identifier = item.identifier or ""
         if not identifier.startswith(_PRESET_PREFIX):
             raise BrowseError(f"Unsupported camspeak media identifier: {identifier}")
-        preset_name = identifier[len(_PRESET_PREFIX) :]
+        rest = identifier[len(_PRESET_PREFIX) :]
+        # Identifier is "preset/<category>/<name>"
+        parts = rest.split("/", 1)
+        if len(parts) != _IDENTIFIER_PARTS:
+            raise BrowseError(f"Invalid camspeak preset identifier: {identifier}")
+        category, name = parts
+        base_url = self.coordinator.client._base_url  # noqa: SLF001
+        preview_url = f"{base_url}/api/library/{category}/{name}/preview"
         return PlayMedia(
-            f"camspeak://preset/{preset_name}",
-            MediaType.MUSIC,
+            preview_url,
+            "audio/wav",
         )
 
     async def async_browse_media(self, item: MediaSourceItem) -> BrowseMediaSource:
@@ -146,11 +157,12 @@ class CamspeakMediaSource(MediaSource):
     def _preset_item(preset: dict[str, Any]) -> BrowseMediaSource:
         """Build a browsable leaf node for a single preset."""
         name = preset["name"]
+        category = preset.get("category", "default")
         duration = preset.get("duration")
         title = f"{name} ({duration}s)" if duration else name
         return BrowseMediaSource(
             domain=DOMAIN,
-            identifier=f"{_PRESET_PREFIX}{name}",
+            identifier=f"{_PRESET_PREFIX}{category}/{name}",
             media_class=MediaClass.MUSIC,
             media_content_type=MediaType.MUSIC,
             title=title,

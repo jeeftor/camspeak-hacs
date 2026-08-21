@@ -76,7 +76,7 @@ async def test_play_preset_service(
             "entity_id": MEDIA_PLAYER_ENTITY,
             "preset": "rain",
             "category": "uploads",
-            "loop": True,
+            "loop": -1,
         },
         blocking=True,
         return_response=True,
@@ -85,7 +85,7 @@ async def test_play_preset_service(
         camera="backyard",
         preset="rain",
         category="uploads",
-        loop=True,
+        loop=-1,
     )
     assert response["cameras"]["backyard"]["status"] == "ok"
 
@@ -203,7 +203,7 @@ async def test_broadcast_loop_service(
     await hass.services.async_call(
         "camspeak",
         "broadcast",
-        {"preset": "dog", "category": "alerts", "loop": True},
+        {"preset": "dog", "category": "alerts", "loop": -1},
         blocking=True,
         return_response=True,
     )
@@ -213,7 +213,7 @@ async def test_broadcast_loop_service(
         category="alerts",
         voice="",
         gain=0,
-        loop=True,
+        loop=-1,
     )
 
 
