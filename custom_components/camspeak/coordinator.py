@@ -75,7 +75,7 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
             hass,
             logger=LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(seconds=60),
             config_entry=entry,
         )
         self.client = client
