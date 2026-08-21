@@ -9,6 +9,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/jeeftor/camspeak-hacs/issues",
   "quality_scale": "bronze",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "zeroconf": ["_camspeak._tcp.local."]
 }

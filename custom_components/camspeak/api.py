@@ -70,6 +70,31 @@ class CamspeakApiClient:
         """GET /api/voices — available TTS voices."""
         return await self._request("GET", "/api/voices")
 
+    async def tts_preview(self, text: str, voice: str = "") -> bytes:
+        """POST /api/tts/preview — generate TTS and return WAV bytes."""
+        url = f"{self._base_url}/api/tts/preview"
+        payload: dict[str, Any] = {"text": text}
+        if voice:
+            payload["voice"] = voice
+        try:
+            async with (
+                self._session.post(
+                    url, json=payload, timeout=ClientTimeout(total=60)
+                ) as resp,
+            ):
+                if resp.status >= 400:  # noqa: PLR2004
+                    text_resp = await resp.text()
+                    raise CamspeakApiClientError(
+                        f"POST /api/tts/preview returned {resp.status}: {text_resp}"
+                    )
+                return await resp.read()
+        except CamspeakApiClientError:
+            raise
+        except Exception as exc:
+            raise CamspeakApiClientError(
+                f"Connection error calling /api/tts/preview: {exc}"
+            ) from exc
+
     async def update_camera(self, camera: dict[str, Any]) -> dict[str, Any]:
         """POST /api/config/cameras — add or update a camera."""
         return await self._request("POST", "/api/config/cameras", json_data=camera)
