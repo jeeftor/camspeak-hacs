@@ -23,7 +23,7 @@ from .entity import CamspeakEntity
 
 _CAMSPEAK_PRESET_PREFIX = "camspeak://preset/"
 _CAMSPEAK_LIBRARY_PREFIX = "camspeak://library/"
-_CAMSPEAK_PREVIEW_RE = re.compile(r"/api/library/[^/]+/[^/]+/preview$")
+_CAMSPEAK_PREVIEW_RE = re.compile(r"/api/library/[^/]+/[^/]+/preview(?:\?|$)")
 
 _STREAM_MIME_PREFIXES = (
     "audio/x-mpegurl",
