@@ -18,7 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 
 from .api import CamspeakApiClient
-from .const import CONF_URL, CONF_VERIFY_SSL, DOMAIN, LOGGER
+from .const import CONF_URL, CONF_VERIFY_SSL, DOMAIN, LOGGER, MIN_APP_VERSION
 from .coordinator import CamspeakCoordinator
 
 PLATFORMS: list[Platform] = [
@@ -31,6 +31,16 @@ PLATFORMS: list[Platform] = [
 type CamspeakConfigEntry = ConfigEntry[CamspeakCoordinator]
 
 
+def _parse_app_version(version: str) -> tuple[int, int, int]:
+    """Parse a version string like 'v2.17.3' into (2, 17, 3)."""
+    v = version.lstrip("v")
+    parts = v.split(".")
+    try:
+        return tuple(int(p) for p in parts[:3])  # type: ignore[return-value]
+    except ValueError:
+        return (0, 0, 0)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) -> bool:
     """Set up camspeak from a config entry."""
     base_url = entry.data[CONF_URL]
@@ -40,6 +50,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: CamspeakConfigEntry) -> 
         base_url,
         session=async_get_clientsession(hass, verify_ssl=verify_ssl),
     )
+
+    # Check app version and warn if too old
+    try:
+        health = await client.health()
+        app_version = _parse_app_version(health.get("version", ""))
+        if app_version < MIN_APP_VERSION:
+            min_str = ".".join(str(n) for n in MIN_APP_VERSION)
+            app_str = "v" + ".".join(str(n) for n in app_version)
+            LOGGER.warning(
+                "camspeak app version %s is older than recommended %s — "
+                "some features (audio level, stream presets) may not work. "
+                "Update the camspeak Docker image to the latest version.",
+                app_str,
+                min_str,
+            )
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug("Could not check app version: %s", exc)
 
     coordinator = CamspeakCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
