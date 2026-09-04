@@ -111,7 +111,7 @@ class CamspeakApiClient:
         preset: str,
         category: str = "",
         gain: float = 0,
-        loop: int = 1,
+        loop: int = 0,
     ) -> dict[str, Any]:
         """POST /api/play."""
         data: dict[str, Any] = {"camera": camera, "preset": preset}
@@ -146,7 +146,7 @@ class CamspeakApiClient:
         category: str = "",
         voice: str = "",
         gain: float = 0,
-        loop: int = 1,
+        loop: int = 0,
     ) -> dict[str, Any]:
         """POST /api/broadcast."""
         data: dict[str, Any] = {}

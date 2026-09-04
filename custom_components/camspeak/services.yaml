@@ -71,9 +71,9 @@ play_preset:
           mode: slider
     loop:
       name: Loop
-      description: "Loop count: -1 = infinite (pausable), 0 = no loop, 1 = play twice (default), N = play N+1 times"
+      description: "Loop count: -1 = infinite (pausable), 0 = no loop (default), N = play N+1 times"
       required: false
-      default: 1
+      default: 0
       selector:
         number:
           min: -1
@@ -190,9 +190,9 @@ broadcast:
           mode: slider
     loop:
       name: Loop
-      description: "Loop count: -1 = infinite (only when using a preset), 0 = no loop, 1 = play twice (default), N = play N+1 times"
+      description: "Loop count: -1 = infinite (only when using a preset), 0 = no loop (default), N = play N+1 times"
       required: false
-      default: 1
+      default: 0
       selector:
         number:
           min: -1
