@@ -50,10 +50,14 @@ class CamspeakMediaSource(MediaSource):
     async def async_resolve_media(self, item: MediaSourceItem) -> PlayMedia:
         """Resolve a preset media item to a playable URI.
 
-        Returns a WAV preview URL (``/api/library/<category>/<name>/preview``)
-        that browsers can play. The media player's ``async_play_media`` detects
-        the preview URL pattern and routes to ``play_preset`` for direct
-        camera playback (avoids download + transcode round-trip).
+        For audio presets, returns a WAV preview URL
+        (``/api/library/<category>/<name>/preview``) that browsers can play.
+        The media player's ``async_play_media`` detects the preview URL
+        pattern and routes to ``play_preset`` for direct camera playback
+        (avoids download + transcode round-trip).
+
+        For stream presets (presets with a ``url`` field), returns the
+        stream URL directly so the media player can play it as a live stream.
         """
         identifier = item.identifier or ""
         if not identifier.startswith(_PRESET_PREFIX):
@@ -64,6 +68,18 @@ class CamspeakMediaSource(MediaSource):
         if len(parts) != _IDENTIFIER_PARTS:
             raise BrowseError(f"Invalid camspeak preset identifier: {identifier}")
         category, name = parts
+
+        # Look up the preset to check if it's a stream preset.
+        presets = _get_all_presets(self.coordinator)
+        preset = next(
+            (p for p in presets if p.get("category") == category and p.get("name") == name),
+            None,
+        )
+        if preset and preset.get("url"):
+            # Stream preset: return the stream URL directly.
+            return PlayMedia(preset["url"], "audio/mpeg")
+
+        # Audio preset: return the WAV preview URL.
         base_url = self.coordinator.client._base_url  # noqa: SLF001
         preview_url = f"{base_url}/api/library/{category}/{name}/preview"
         return PlayMedia(
@@ -158,12 +174,19 @@ class CamspeakMediaSource(MediaSource):
         """Build a browsable leaf node for a single preset."""
         name = preset["name"]
         category = preset.get("category", "default")
-        duration = preset.get("duration")
-        title = f"{name} ({duration}s)" if duration else name
+        url = preset.get("url")
+        if url:
+            # Stream preset: no duration, show radio icon in title.
+            title = f"📡 {name}"
+            media_class = MediaClass.CHANNEL
+        else:
+            duration = preset.get("duration")
+            title = f"{name} ({duration}s)" if duration else name
+            media_class = MediaClass.MUSIC
         return BrowseMediaSource(
             domain=DOMAIN,
             identifier=f"{_PRESET_PREFIX}{category}/{name}",
-            media_class=MediaClass.MUSIC,
+            media_class=media_class,
             media_content_type=MediaType.MUSIC,
             title=title,
             can_play=True,

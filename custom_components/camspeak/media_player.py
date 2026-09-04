@@ -165,6 +165,15 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
                 )
                 await self.coordinator.async_request_refresh()
                 return
+            # Camspeak media source for stream presets returns the stream URL
+            # directly (not a preview URL). Route to play_stream for live
+            # streaming instead of play_url (which would download + transcode).
+            if media_source_domain == DOMAIN and _is_url(media_id):
+                await self.coordinator.client.play_stream(
+                    camera=self._camera_name, url=media_id
+                )
+                await self.coordinator.async_request_refresh()
+                return
 
         if media_id.startswith(_CAMSPEAK_PRESET_PREFIX):
             preset = media_id[len(_CAMSPEAK_PRESET_PREFIX) :]
@@ -269,10 +278,18 @@ def _audio_content_filter(item: BrowseMedia) -> bool:
 def _preset_browse_item(preset: dict[str, Any]) -> BrowseMedia:
     """Return a BrowseMedia item for a camspeak preset."""
     name = preset["name"]
-    title = f"{name} ({preset['duration']}s)" if preset.get("duration") else name
+    url = preset.get("url")
+    if url:
+        # Stream preset: no duration, show radio icon.
+        title = f"📡 {name}"
+        media_class = MediaClass.CHANNEL
+    else:
+        duration = preset.get("duration")
+        title = f"{name} ({duration}s)" if duration else name
+        media_class = MediaClass.MUSIC
     return BrowseMedia(
         title=title,
-        media_class=MediaClass.MUSIC,
+        media_class=media_class,
         media_content_id=f"{_CAMSPEAK_PRESET_PREFIX}{name}",
         media_content_type=MediaType.MUSIC,
         can_play=True,
