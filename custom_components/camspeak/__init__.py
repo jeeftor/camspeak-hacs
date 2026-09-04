@@ -185,7 +185,7 @@ def _async_register_services(
         preset = call.data.get("preset", "")
         if not text and not preset:
             raise ServiceValidationError("Either text or preset is required for broadcast")
-        loop = call.data.get("loop", 0)
+        loop = call.data.get("loop", 1)
         kwargs: dict[str, Any] = {
             "text": text,
             "preset": preset,
