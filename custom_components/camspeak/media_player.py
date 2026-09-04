@@ -169,9 +169,7 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
             # directly (not a preview URL). Route to play_stream for live
             # streaming instead of play_url (which would download + transcode).
             if media_source_domain == DOMAIN and _is_url(media_id):
-                await self.coordinator.client.play_stream(
-                    camera=self._camera_name, url=media_id
-                )
+                await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
                 await self.coordinator.async_request_refresh()
                 return
 

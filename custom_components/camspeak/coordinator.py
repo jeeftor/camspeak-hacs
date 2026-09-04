@@ -80,7 +80,11 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
         )
         self.client = client
         self._sse_task: asyncio.Task | None = None
+        self._level_task: asyncio.Task | None = None
         self._prev_voices: list[str] = []
+        # Real-time audio levels from /api/stream-levels SSE, keyed by camera name.
+        # Updated by the level SSE listener between coordinator polls.
+        self.live_levels: dict[str, float] = {}
 
     @override
     async def _async_update_data(self) -> CamspeakData:
@@ -106,9 +110,13 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
         for cam in cameras:
             name = cam["name"]
             merged = {**cam, **config_by_name.get(name, {})}
+            pb = playback.get(name, {})
+            # Merge live SSE level if available (more recent than polled data)
+            if name in self.live_levels:
+                pb = {**pb, "level": self.live_levels[name]}
             camera_data[name] = CameraData(
                 camera=merged,
-                playback=playback.get(name, {}),
+                playback=pb,
                 presets=presets,
                 preset_names=preset_names,
             )
@@ -127,16 +135,20 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
         return result
 
     async def async_start_sse_listener(self) -> None:
-        """Start listening to the SSE event stream."""
+        """Start listening to the SSE event and stream-levels streams."""
         self._sse_task = asyncio.create_task(self._sse_loop())
+        self._level_task = asyncio.create_task(self._level_loop())
 
     async def async_stop_sse_listener(self) -> None:
-        """Stop the SSE listener."""
-        if self._sse_task:
-            self._sse_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._sse_task
-            self._sse_task = None
+        """Stop the SSE listeners."""
+        for task in (self._sse_task, self._level_task):
+            if task:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        self._sse_task = None
+        self._level_task = None
+        self.live_levels.clear()
 
     async def _sse_loop(self) -> None:
         """Listen to SSE events and trigger refresh on playback changes."""
@@ -166,4 +178,33 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
                 raise
             except Exception as exc:  # noqa: BLE001
                 LOGGER.debug("SSE connection lost: %s — reconnecting in 5s", exc)
+                await asyncio.sleep(5)
+
+    async def _level_loop(self) -> None:
+        """Listen to /api/stream-levels SSE for real-time audio levels.
+
+        Updates self.live_levels without triggering a full coordinator refresh.
+        The sensor entities read this via coordinator data on their next update.
+        """
+        url = f"{self.client._base_url}/api/stream-levels"  # noqa: SLF001
+        while True:
+            try:
+                async with self.client._session.get(  # noqa: SLF001
+                    url, timeout=ClientTimeout(total=None), raise_for_status=True
+                ) as resp:
+                    async for raw_line in resp.content:
+                        line = raw_line.strip()
+                        if not line or not line.startswith(b"data: "):
+                            continue
+                        try:
+                            levels = json.loads(line[6:])
+                        except json.JSONDecodeError:
+                            continue
+                        self.live_levels = levels
+                        # Notify entities so they pick up the new levels
+                        self.async_update_listeners()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug("Level SSE connection lost: %s — reconnecting in 5s", exc)
                 await asyncio.sleep(5)

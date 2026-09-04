@@ -60,12 +60,19 @@ class CamspeakPlaybackSensor(CamspeakSensor):
         else:
             playback = data.cameras[self._camera_name].playback
             self._attr_native_value = playback.get("state", PLAYBACK_IDLE)
-            self._attr_extra_state_attributes = {
+            attrs = {
                 "source": playback.get("source", ""),
                 "detail": playback.get("detail", ""),
                 "started_at": playback.get("started_at", ""),
                 "paused_at": playback.get("paused_at", ""),
             }
+            # Prefer live SSE level (real-time), fall back to polled level
+            level = self.coordinator.live_levels.get(self._camera_name)
+            if level is None:
+                level = playback.get("level")
+            if level is not None:
+                attrs["audio_level"] = round(level, 3)
+            self._attr_extra_state_attributes = attrs
 
     @override
     def _handle_coordinator_update(self) -> None:
