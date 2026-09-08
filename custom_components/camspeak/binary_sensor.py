@@ -46,6 +46,10 @@ class CamspeakOnlineSensor(CamspeakEntity, BinarySensorEntity):
 
     def _update_state(self) -> None:
         """Update entity state from coordinator data."""
+        if not self.coordinator.last_update_success:
+            self._attr_available = False
+            return
+        self._attr_available = True
         data = self.coordinator.data
         if not data or self._camera_name not in data.cameras:
             self._attr_is_on = False

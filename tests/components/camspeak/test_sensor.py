@@ -1,12 +1,11 @@
 """Tests for the camspeak sensor platform."""
 
-from datetime import timedelta
 from unittest.mock import AsyncMock
 
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 
-from tests.common import MockConfigEntry, async_fire_time_changed
+from tests.common import MockConfigEntry
 
 from . import setup_integration
 
@@ -113,16 +112,15 @@ async def test_sensor_unavailable_on_connection_error(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_camspeak_client: AsyncMock,
-    freezer,
 ) -> None:
     """Test sensor becomes unavailable on connection error."""
     await setup_integration(hass, mock_config_entry)
 
     # Simulate connection error on next update
     mock_camspeak_client.get_cameras.side_effect = Exception("connection lost")
-    freezer.tick(timedelta(seconds=30))
-    async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    coordinator = mock_config_entry.runtime_data
+    await coordinator.async_request_refresh()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
     state = hass.states.get(PLAYBACK_ENTITY)
     assert state.state == STATE_UNAVAILABLE
