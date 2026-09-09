@@ -14,7 +14,6 @@ PLAYBACK_PLAYING = "playing"
 PLAYBACK_PAUSED = "paused"
 
 # Minimum camspeak app version required by this integration.
-# v3.1.2 added centralized gain resolution and fixed Describe ignoring
-# request-level gain; v3.1.0 added VU meters for one-shot playback;
-# v3.0.0 refactored config/benchmark/vision playground.
-MIN_APP_VERSION = (3, 1, 2)
+# v4.0.0 removed MQTT rules engine — HA automations are now the way to
+# trigger camspeak actions. v3.1.2 added centralized gain resolution.
+MIN_APP_VERSION = (4, 0, 0)
