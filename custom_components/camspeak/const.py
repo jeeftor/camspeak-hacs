@@ -14,6 +14,7 @@ PLAYBACK_PLAYING = "playing"
 PLAYBACK_PAUSED = "paused"
 
 # Minimum camspeak app version required by this integration.
-# v2.18.0 added stream reconnection, ICY metadata in playback detail,
-# and dynaudnorm live-stream normalization.
-MIN_APP_VERSION = (2, 18, 0)
+# v3.1.2 added centralized gain resolution and fixed Describe ignoring
+# request-level gain; v3.1.0 added VU meters for one-shot playback;
+# v3.0.0 refactored config/benchmark/vision playground.
+MIN_APP_VERSION = (3, 1, 2)
