@@ -144,8 +144,13 @@ async def _async_resolve_cameras(hass: HomeAssistant, call: ServiceCall) -> list
 def _make_per_camera_handler(
     hass: HomeAssistant,
     api_call: Callable[..., Awaitable[dict[str, Any]]],
+    camera_kwarg: str = "camera",
 ) -> Callable[[ServiceCall], Awaitable[dict[str, Any]]]:
-    """Create a service handler that resolves targets and calls the API per camera."""
+    """Create a service handler that resolves targets and calls the API per camera.
+
+    camera_kwarg is the keyword argument name to pass the resolved camera as.
+    Defaults to "camera"; use "target_camera" for announce.
+    """
 
     async def handler(call: ServiceCall) -> dict[str, Any]:
         cameras = await _async_resolve_cameras(hass, call)
@@ -154,7 +159,7 @@ def _make_per_camera_handler(
         data = service_helpers.remove_entity_service_fields(call)
         results: dict[str, Any] = {}
         for camera in cameras:
-            results[camera] = await api_call(camera=camera, **data)
+            results[camera] = await api_call(**{camera_kwarg: camera, **data})
         return {"cameras": results}
 
     return handler
@@ -291,6 +296,19 @@ def _async_register_services(
             vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
             False,
         ),
+        "announce": (
+            _make_per_camera_handler(hass, client.announce, "target_camera"),
+            vol.Schema(
+                {
+                    **cv.ENTITY_SERVICE_FIELDS,
+                    vol.Required("source_camera"): cv.string,
+                    vol.Optional("prompt"): cv.string,
+                    vol.Optional("voice"): voice_vol,
+                    vol.Optional("gain"): vol.Coerce(float),
+                }
+            ),
+            True,
+        ),
         "stop": (
             _make_all_or_camera_handler(hass, client.stop),
             vol.Schema({**cv.ENTITY_SERVICE_FIELDS}),
@@ -329,6 +347,7 @@ def _async_remove_services(hass: HomeAssistant) -> None:
         "play_url",
         "broadcast",
         "beep",
+        "announce",
         "stop",
         "pause",
         "resume",

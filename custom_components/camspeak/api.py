@@ -138,6 +138,27 @@ class CamspeakApiClient:
             data["gain"] = gain
         return await self._request("POST", "/api/speak", json_data=data)
 
+    async def announce(
+        self,
+        source_camera: str,
+        target_camera: str,
+        prompt: str = "",
+        voice: str = "",
+        gain: float = 0,
+    ) -> dict[str, Any]:
+        """POST /api/announce — capture from source, vision, TTS, play on target."""
+        data: dict[str, Any] = {
+            "source_camera": source_camera,
+            "target_camera": target_camera,
+        }
+        if prompt:
+            data["prompt"] = prompt
+        if voice:
+            data["voice"] = voice
+        if gain > 0:
+            data["gain"] = gain
+        return await self._request("POST", "/api/announce", json_data=data)
+
     async def broadcast(
         self,
         *,
