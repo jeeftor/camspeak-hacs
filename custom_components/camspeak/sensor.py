@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING
+from .const import PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING, PLAYBACK_PREPARING
 from .coordinator import CamspeakCoordinator
 from .entity import CamspeakEntity
 
@@ -37,7 +37,12 @@ class CamspeakPlaybackSensor(CamspeakSensor):
 
     _attr_icon = "mdi:speaker-message"
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options: list[str] = [PLAYBACK_IDLE, PLAYBACK_PLAYING, PLAYBACK_PAUSED]  # noqa: RUF012
+    _attr_options: list[str] = [  # noqa: RUF012
+        PLAYBACK_IDLE,
+        PLAYBACK_PREPARING,
+        PLAYBACK_PLAYING,
+        PLAYBACK_PAUSED,
+    ]
 
     def __init__(self, coordinator: CamspeakCoordinator, camera_name: str) -> None:
         """Initialize the sensor."""

@@ -9,6 +9,7 @@ this URL and routes to ``play_preset`` for direct camera playback.
 """
 
 from typing import Any
+from urllib.parse import quote, unquote
 
 from homeassistant.components.media_player import BrowseError, MediaClass, MediaType
 from homeassistant.components.media_source import (
@@ -67,7 +68,7 @@ class CamspeakMediaSource(MediaSource):
         parts = rest.split("/", 1)
         if len(parts) != _IDENTIFIER_PARTS:
             raise BrowseError(f"Invalid camspeak preset identifier: {identifier}")
-        category, name = parts
+        category, name = (unquote(part) for part in parts)
 
         # Look up the preset to check if it's a stream preset.
         presets = _get_all_presets(self.coordinator)
@@ -81,7 +82,9 @@ class CamspeakMediaSource(MediaSource):
 
         # Audio preset: return the WAV preview URL.
         base_url = self.coordinator.client._base_url  # noqa: SLF001
-        preview_url = f"{base_url}/api/library/{category}/{name}/preview"
+        preview_url = (
+            f"{base_url}/api/library/{quote(category, safe='')}/{quote(name, safe='')}/preview"
+        )
         return PlayMedia(
             preview_url,
             "audio/wav",
@@ -185,7 +188,7 @@ class CamspeakMediaSource(MediaSource):
             media_class = MediaClass.MUSIC
         return BrowseMediaSource(
             domain=DOMAIN,
-            identifier=f"{_PRESET_PREFIX}{category}/{name}",
+            identifier=f"{_PRESET_PREFIX}{quote(category, safe='')}/{quote(name, safe='')}",
             media_class=media_class,
             media_content_type=MediaType.MUSIC,
             title=title,

@@ -2,6 +2,7 @@
 
 import re
 from typing import Any, override
+from urllib.parse import quote, unquote, urlsplit
 
 from homeassistant.components import media_source
 from homeassistant.components.media_player import (
@@ -17,7 +18,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN, PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING
+from .const import DOMAIN, PLAYBACK_IDLE, PLAYBACK_PAUSED, PLAYBACK_PLAYING, PLAYBACK_PREPARING
 from .coordinator import CamspeakCoordinator
 from .entity import CamspeakEntity
 
@@ -36,6 +37,15 @@ _STREAM_EXTENSIONS = (".pls", ".m3u", ".m3u8")
 
 _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 _MEDIA_SOURCE_RE = re.compile(r"^media-source://")
+_SUPPORTED_FEATURES = (
+    MediaPlayerEntityFeature.PLAY
+    | MediaPlayerEntityFeature.PAUSE
+    | MediaPlayerEntityFeature.STOP
+    | MediaPlayerEntityFeature.PLAY_MEDIA
+    | MediaPlayerEntityFeature.SELECT_SOURCE
+    | MediaPlayerEntityFeature.VOLUME_SET
+    | MediaPlayerEntityFeature.BROWSE_MEDIA
+)
 
 
 def _media_source_domain(media_id: str) -> str | None:
@@ -60,15 +70,7 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
     """Representation of a camspeak camera as a media player."""
 
     _attr_media_content_type = MediaType.MUSIC
-    _attr_supported_features = (
-        MediaPlayerEntityFeature.PLAY
-        | MediaPlayerEntityFeature.PAUSE
-        | MediaPlayerEntityFeature.STOP
-        | MediaPlayerEntityFeature.PLAY_MEDIA
-        | MediaPlayerEntityFeature.SELECT_SOURCE
-        | MediaPlayerEntityFeature.VOLUME_SET
-        | MediaPlayerEntityFeature.BROWSE_MEDIA
-    )
+    _attr_supported_features = _SUPPORTED_FEATURES
 
     def __init__(self, coordinator: CamspeakCoordinator, camera_name: str) -> None:
         """Initialize the media player."""
@@ -113,18 +115,21 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
             self._attr_state = MediaPlayerState.PLAYING
         elif state == PLAYBACK_PAUSED:
             self._attr_state = MediaPlayerState.PAUSED
+        elif state == PLAYBACK_PREPARING:
+            self._attr_state = MediaPlayerState.BUFFERING
         else:
             self._attr_state = MediaPlayerState.IDLE
 
-        detail = playback.get("detail", "")
-        if detail:
-            self._attr_media_title = detail
+        self._attr_media_title = playback.get("detail") or None
+        features = _SUPPORTED_FEATURES
+        if not playback.get("can_pause", True):
+            features &= ~MediaPlayerEntityFeature.PAUSE
+        self._attr_supported_features = features
 
         self._attr_source_list = cam_data.preset_names
 
         gain = cam.get("gain", 3.0)
-        if gain and gain > 0:
-            self._attr_volume_level = min(gain / 10.0, 1.0)
+        self._attr_volume_level = max(0.0, min(gain / 10.0, 1.0))
 
     @override
     async def async_added_to_hass(self) -> None:
@@ -158,10 +163,11 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
             # playback. For camera playback, extract the preset name and
             # use play_preset directly (avoids download + transcode round-trip).
             if media_source_domain == DOMAIN and _CAMSPEAK_PREVIEW_RE.search(media_id):
-                # URL is /api/library/<category>/<name>/preview — extract name
-                preset_name = media_id.rstrip("/").rsplit("/", 2)[-2]
+                category, preset_name = urlsplit(media_id).path.rsplit("/", 3)[1:3]
                 await self.coordinator.client.play_preset(
-                    camera=self._camera_name, preset=preset_name
+                    camera=self._camera_name,
+                    preset=unquote(preset_name),
+                    category=unquote(category),
                 )
                 await self.coordinator.async_request_refresh()
                 return
@@ -174,8 +180,16 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
                 return
 
         if media_id.startswith(_CAMSPEAK_PRESET_PREFIX):
-            preset = media_id[len(_CAMSPEAK_PRESET_PREFIX) :]
-            await self.coordinator.client.play_preset(camera=self._camera_name, preset=preset)
+            identifier = media_id[len(_CAMSPEAK_PRESET_PREFIX) :]
+            category, separator, preset = identifier.partition("/")
+            if separator:
+                await self.coordinator.client.play_preset(
+                    camera=self._camera_name, preset=unquote(preset), category=unquote(category)
+                )
+            else:
+                await self.coordinator.client.play_preset(
+                    camera=self._camera_name, preset=unquote(identifier)
+                )
         elif _is_url(media_id):
             if _looks_like_stream(media_id, media_type):
                 await self.coordinator.client.play_stream(camera=self._camera_name, url=media_id)
@@ -233,7 +247,16 @@ class CamspeakMediaPlayer(CamspeakEntity, MediaPlayerEntity):
     @override
     async def async_select_source(self, source: str) -> None:
         """Select a preset source."""
-        await self.coordinator.client.play_preset(camera=self._camera_name, preset=source)
+        camera = self.coordinator.data.cameras[self._camera_name]
+        if source in camera.preset_names:
+            preset = camera.presets[camera.preset_names.index(source)]
+            await self.coordinator.client.play_preset(
+                camera=self._camera_name,
+                preset=preset["name"],
+                category=preset.get("category", ""),
+            )
+        else:
+            await self.coordinator.client.play_preset(camera=self._camera_name, preset=source)
         self._attr_source = source
         await self.coordinator.async_request_refresh()
 
@@ -288,7 +311,10 @@ def _preset_browse_item(preset: dict[str, Any]) -> BrowseMedia:
     return BrowseMedia(
         title=title,
         media_class=media_class,
-        media_content_id=f"{_CAMSPEAK_PRESET_PREFIX}{name}",
+        media_content_id=(
+            f"{_CAMSPEAK_PRESET_PREFIX}{quote(preset.get('category', ''), safe='')}/"
+            f"{quote(name, safe='')}"
+        ),
         media_content_type=MediaType.MUSIC,
         can_play=True,
         can_expand=False,

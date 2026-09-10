@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for camspeak."""
 
 import asyncio
+from collections import Counter
 from collections.abc import Callable
 import contextlib
 from dataclasses import dataclass
@@ -104,12 +105,16 @@ class CamspeakCoordinator(DataUpdateCoordinator[CamspeakData]):
 
         # Merge live status (online, ip) with config (gain, channel, stream)
         config_by_name = {c["name"]: c for c in config_cameras}
-        preset_names = [p["name"] for p in presets]
+        name_counts = Counter(p["name"] for p in presets)
+        preset_names = [
+            f"{p.get('category', '')}/{p['name']}" if name_counts[p["name"]] > 1 else p["name"]
+            for p in presets
+        ]
         categories = sorted({p.get("category", "") for p in presets if p.get("category")})
         camera_data: dict[str, CameraData] = {}
         for cam in cameras:
             name = cam["name"]
-            merged = {**cam, **config_by_name.get(name, {})}
+            merged = {**config_by_name.get(name, {}), **cam}
             pb = playback.get(name, {})
             # Merge live SSE level if available (more recent than polled data)
             if name in self.live_levels:

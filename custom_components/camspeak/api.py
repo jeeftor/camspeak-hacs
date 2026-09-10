@@ -110,14 +110,14 @@ class CamspeakApiClient:
         camera: str,
         preset: str,
         category: str = "",
-        gain: float = 0,
+        gain: float | None = None,
         loop: int = 0,
     ) -> dict[str, Any]:
         """POST /api/play."""
         data: dict[str, Any] = {"camera": camera, "preset": preset}
         if category:
             data["category"] = category
-        if gain > 0:
+        if gain is not None:
             data["gain"] = gain
         if loop != 0:
             data["loop"] = loop
@@ -128,13 +128,13 @@ class CamspeakApiClient:
         camera: str,
         text: str,
         voice: str = "",
-        gain: float = 0,
+        gain: float | None = None,
     ) -> dict[str, Any]:
         """POST /api/speak."""
         data: dict[str, Any] = {"camera": camera, "text": text}
         if voice:
             data["voice"] = voice
-        if gain > 0:
+        if gain is not None:
             data["gain"] = gain
         return await self._request("POST", "/api/speak", json_data=data)
 
@@ -144,7 +144,7 @@ class CamspeakApiClient:
         target_camera: str,
         prompt: str = "",
         voice: str = "",
-        gain: float = 0,
+        gain: float | None = None,
     ) -> dict[str, Any]:
         """POST /api/announce — capture from source, vision, TTS, play on target."""
         data: dict[str, Any] = {
@@ -155,7 +155,7 @@ class CamspeakApiClient:
             data["prompt"] = prompt
         if voice:
             data["voice"] = voice
-        if gain > 0:
+        if gain is not None:
             data["gain"] = gain
         return await self._request("POST", "/api/announce", json_data=data)
 
@@ -166,7 +166,7 @@ class CamspeakApiClient:
         preset: str = "",
         category: str = "",
         voice: str = "",
-        gain: float = 0,
+        gain: float | None = None,
         loop: int = 0,
     ) -> dict[str, Any]:
         """POST /api/broadcast."""
@@ -179,23 +179,23 @@ class CamspeakApiClient:
             data["category"] = category
         if voice:
             data["voice"] = voice
-        if gain > 0:
+        if gain is not None:
             data["gain"] = gain
         if loop != 0:
             data["loop"] = loop
         return await self._request("POST", "/api/broadcast", json_data=data)
 
-    async def play_stream(self, camera: str, url: str, gain: float = 0) -> dict[str, Any]:
+    async def play_stream(self, camera: str, url: str, gain: float | None = None) -> dict[str, Any]:
         """POST /api/play-stream."""
         data: dict[str, Any] = {"camera": camera, "url": url}
-        if gain > 0:
+        if gain is not None:
             data["gain"] = gain
         return await self._request("POST", "/api/play-stream", json_data=data)
 
-    async def play_url(self, camera: str, url: str, gain: float = 0) -> dict[str, Any]:
+    async def play_url(self, camera: str, url: str, gain: float | None = None) -> dict[str, Any]:
         """POST /api/play-url."""
         data: dict[str, Any] = {"camera": camera, "url": url}
-        if gain > 0:
+        if gain is not None:
             data["gain"] = gain
         return await self._request("POST", "/api/play-url", json_data=data)
 

@@ -265,7 +265,9 @@ async def test_media_player_select_source(
         {"entity_id": MEDIA_PLAYER_ENTITY, "source": "alert"},
         blocking=True,
     )
-    mock_camspeak_client.play_preset.assert_called_once_with(camera="backyard", preset="alert")
+    mock_camspeak_client.play_preset.assert_called_once_with(
+        camera="backyard", preset="alert", category="default"
+    )
 
 
 async def test_media_player_set_volume(
@@ -344,7 +346,7 @@ async def test_media_player_browse_media_category(
     assert result.title == "Uploads"
     assert len(result.children) == 1
     assert result.children[0].title == "rain (15.9s)"
-    assert result.children[0].media_content_id == "camspeak://preset/rain"
+    assert result.children[0].media_content_id == "camspeak://preset/uploads/rain"
     assert result.children[0].can_play is True
     assert result.children[0].can_expand is False
 

@@ -223,7 +223,7 @@ def _async_register_services(
             "preset": preset,
             "category": call.data.get("category", ""),
             "voice": call.data.get("voice", ""),
-            "gain": call.data.get("gain", 0),
+            "gain": call.data.get("gain"),
         }
         if loop != 0:
             kwargs["loop"] = loop

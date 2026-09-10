@@ -30,6 +30,10 @@
     }
   },
   "services": {
+    "announce": {
+      "name": "Announce",
+      "description": "Describe a source camera image and speak it on your target camera."
+    },
     "speak": {
       "name": "Speak",
       "description": "Speak text on a camera using TTS."

@@ -186,7 +186,7 @@ async def test_broadcast_service(
         preset="",
         category="",
         voice="af_sky",
-        gain=0,
+        gain=None,
     )
     assert response["status"] == "ok"
     assert "backyard" in response["succeeded"]
@@ -212,7 +212,7 @@ async def test_broadcast_loop_service(
         preset="dog",
         category="alerts",
         voice="",
-        gain=0,
+        gain=None,
         loop=-1,
     )
 
