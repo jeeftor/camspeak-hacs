@@ -19,6 +19,7 @@ from custom_components.camspeak.media_player import CamspeakMediaPlayer, _preset
         ("play_url", {"camera": "backyard", "url": "https://example.com/audio.wav"}),
         ("play_stream", {"camera": "backyard", "url": "https://example.com/live"}),
         ("announce", {"source_camera": "frontyard", "target_camera": "backyard"}),
+        ("start_describe_job", {"camera": "backyard"}),
         ("broadcast", {"preset": "rain", "category": "uploads"}),
     ],
 )
@@ -35,6 +36,65 @@ async def test_gain_contract(method: str, arguments: dict[str, Any], gain: float
         assert payload["gain"] == gain
     if "category" in arguments:
         assert payload["category"] == arguments["category"]
+
+
+async def test_start_describe_job_contract() -> None:
+    """Return the accepted job without holding a request open through playback."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    accepted = {
+        "id": "describe-123",
+        "camera": "backyard",
+        "status": "running",
+        "stage": "snapshot",
+        "elapsed_ms": 0,
+        "result": {},
+    }
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        request.return_value = accepted
+        result = await client.start_describe_job(
+            "backyard", prompt="Describe visitors", stream="substream", gain=0
+        )
+        request.assert_awaited_once_with(
+            "POST",
+            "/api/describe/jobs",
+            json_data={
+                "camera": "backyard",
+                "prompt": "Describe visitors",
+                "stream": "substream",
+                "gain": 0,
+            },
+        )
+    assert result == accepted
+
+
+async def test_start_describe_job_defaults() -> None:
+    """Leave optional settings omitted so your camera and server defaults apply."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.start_describe_job("backyard")
+        request.assert_awaited_once_with(
+            "POST", "/api/describe/jobs", json_data={"camera": "backyard"}
+        )
+
+
+@pytest.mark.parametrize("status", ["running", "done", "error", "canceled"])
+async def test_get_describe_job_contract(status: str) -> None:
+    """Preserve progress, partial results, timings, and errors in job snapshots."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    job = {
+        "id": "describe-123",
+        "camera": "backyard",
+        "status": status,
+        "stage": "connecting" if status == "running" else status,
+        "elapsed_ms": 3000,
+        "result": {"description": "A visitor", "timings": {"vision_ms": 2000}},
+        "error": "Camera unavailable" if status == "error" else "",
+    }
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        request.return_value = job
+        result = await client.get_describe_job("describe-123")
+        request.assert_awaited_once_with("GET", "/api/describe/jobs/describe-123")
+    assert result == job
 
 
 @pytest.fixture

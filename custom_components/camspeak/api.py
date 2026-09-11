@@ -159,6 +159,37 @@ class CamspeakApiClient:
             data["gain"] = gain
         return await self._request("POST", "/api/announce", json_data=data)
 
+    async def start_describe_job(
+        self,
+        camera: str,
+        prompt: str = "",
+        stream: str = "",
+        gain: float | None = None,
+    ) -> dict[str, Any]:
+        """Start a background Describe job without waiting through playback.
+
+        Requires camspeak 4.2.1 or newer. Poll get_describe_job for progress;
+        use stop to cancel your camera's operation. Do not automatically retry
+        this start request if its response is lost: playback may have started.
+        """
+        data: dict[str, Any] = {"camera": camera}
+        if prompt:
+            data["prompt"] = prompt
+        if stream:
+            data["stream"] = stream
+        if gain is not None:
+            data["gain"] = gain
+        return await self._request("POST", "/api/describe/jobs", json_data=data)
+
+    async def get_describe_job(self, job_id: str) -> dict[str, Any]:
+        """Read Describe progress, partial results, and completed stage timings.
+
+        Poll until status is done, error, or canceled. Results expire after
+        ten minutes or earlier eviction; a missing job does not prove that
+        playback failed.
+        """
+        return await self._request("GET", f"/api/describe/jobs/{job_id}")
+
     async def broadcast(
         self,
         *,
