@@ -129,6 +129,15 @@ class CamspeakApiClient:
         """POST /api/config/cameras — add or update a camera."""
         return await self._request("POST", "/api/config/cameras", json_data=camera)
 
+    async def update_camera_capture(
+        self, camera: dict[str, Any], method: str, stream: str = ""
+    ) -> dict[str, Any]:
+        """Save method/source together using your complete existing camera configuration.
+
+        Direct API uses main/sub; go2rtc uses a named stream. Only auto falls back.
+        """
+        return await self.update_camera({**camera, "snap_method": method, "vision_stream": stream})
+
     async def set_volume(self, camera: str, gain: float) -> dict[str, Any]:
         """PUT /api/cameras/:name/volume — set runtime gain (0-10).
 

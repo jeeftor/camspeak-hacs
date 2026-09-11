@@ -11,6 +11,20 @@ from custom_components.camspeak.coordinator import CameraData, CamspeakData
 from custom_components.camspeak.media_player import CamspeakMediaPlayer, _preset_browse_item
 
 
+async def test_capture_source_pair() -> None:
+    """Preserve camera settings while changing method and stream together."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    camera = {"name": "front", "gain": 2, "vision_stream": "old"}
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.update_camera_capture(camera, "isapi", "main")
+        request.assert_awaited_once_with(
+            "POST",
+            "/api/config/cameras",
+            json_data={"name": "front", "gain": 2, "snap_method": "isapi", "vision_stream": "main"},
+        )
+    assert camera["vision_stream"] == "old"
+
+
 async def test_benchmark_tts_contract() -> None:
     """Send explicit transport and PCM parameters without touching playback."""
     client = CamspeakApiClient("http://example.com", MagicMock())
