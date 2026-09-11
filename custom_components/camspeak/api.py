@@ -94,6 +94,12 @@ class CamspeakApiClient:
             },
         )
 
+    async def test_tts_model(self, url: str, model: str = "", api_key: str = "") -> dict[str, Any]:
+        """Check the endpoint catalog and an optional exact model ID without playback."""
+        return await self._request(
+            "POST", "/api/config/tts/test", {"url": url, "model": model, "api_key": api_key}
+        )
+
     async def get_library(self) -> list[dict[str, Any]]:
         """GET /api/library."""
         return await self._request("GET", "/api/library")

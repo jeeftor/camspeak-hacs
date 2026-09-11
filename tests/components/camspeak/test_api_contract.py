@@ -11,6 +11,18 @@ from custom_components.camspeak.coordinator import CameraData, CamspeakData
 from custom_components.camspeak.media_player import CamspeakMediaPlayer, _preset_browse_item
 
 
+async def test_tts_model_catalog_contract() -> None:
+    """Pass the exact selected model without playing or loading it."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.test_tts_model("http://example.com/v1/audio/speech", "kokoro-v1")
+        request.assert_awaited_once_with(
+            "POST",
+            "/api/config/tts/test",
+            {"url": "http://example.com/v1/audio/speech", "model": "kokoro-v1", "api_key": ""},
+        )
+
+
 async def test_capture_source_pair() -> None:
     """Preserve camera settings while changing method and stream together."""
     client = CamspeakApiClient("http://example.com", MagicMock())
