@@ -11,6 +11,25 @@ from custom_components.camspeak.coordinator import CameraData, CamspeakData
 from custom_components.camspeak.media_player import CamspeakMediaPlayer, _preset_browse_item
 
 
+async def test_benchmark_tts_contract() -> None:
+    """Send explicit transport and PCM parameters without touching playback."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.benchmark_tts("local", "streaming", "test")
+        request.assert_awaited_once_with(
+            "POST",
+            "/api/config/tts/benchmark",
+            {
+                "preset": "local",
+                "mode": "streaming",
+                "text": "test",
+                "voice": "",
+                "sample_rate": 24000,
+                "channels": 1,
+            },
+        )
+
+
 async def test_get_events_preserves_replay_metadata() -> None:
     """Keep legacy records and new replay options intact when reading history."""
     client = CamspeakApiClient("http://example.com", MagicMock())

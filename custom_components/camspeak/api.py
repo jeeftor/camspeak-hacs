@@ -70,6 +70,30 @@ class CamspeakApiClient:
             query["camera"] = camera
         return await self._request("GET", f"/api/events/log?{urlencode(query)}")
 
+    async def benchmark_tts(
+        self,
+        preset: str,
+        mode: str,
+        text: str,
+        *,
+        voice: str = "",
+        sample_rate: int = 24000,
+        channels: int = 1,
+    ) -> dict[str, Any]:
+        """Test a saved TTS preset without activating it or playing on cameras."""
+        return await self._request(
+            "POST",
+            "/api/config/tts/benchmark",
+            {
+                "preset": preset,
+                "mode": mode,
+                "text": text,
+                "voice": voice,
+                "sample_rate": sample_rate,
+                "channels": channels,
+            },
+        )
+
     async def get_library(self) -> list[dict[str, Any]]:
         """GET /api/library."""
         return await self._request("GET", "/api/library")
