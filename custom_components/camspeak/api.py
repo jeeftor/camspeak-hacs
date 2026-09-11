@@ -1,9 +1,12 @@
 """Async API client for the camspeak server."""
 
+from collections.abc import AsyncIterator
+from contextlib import aclosing
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from aiohttp import ClientResponse, ClientSession, ClientTimeout
+from aiohttp import ClientResponse, ClientSession, ClientTimeout, FormData
 
 
 class CamspeakApiClientError(Exception):
@@ -46,6 +49,256 @@ class CamspeakApiClient:
             raise
         except Exception as exc:
             raise CamspeakApiClientError(f"Connection error calling {endpoint}: {exc}") from exc
+
+    async def get_config(self) -> Any:
+        """GET /api/config; no automatic retries."""
+        return await self._request("GET", "/api/config")
+
+    async def get_settings(self) -> Any:
+        """GET /api/config/settings; no automatic retries."""
+        return await self._request("GET", "/api/config/settings")
+
+    async def update_settings(self, payload: dict[str, Any]) -> Any:
+        """PUT /api/config/settings; no automatic retries."""
+        return await self._request("PUT", "/api/config/settings", json_data=payload)
+
+    async def test_settings(self, payload: dict[str, Any]) -> Any:
+        """POST /api/config/settings/test; no automatic retries."""
+        return await self._request("POST", "/api/config/settings/test", json_data=payload)
+
+    async def get_vision_config(self) -> Any:
+        """GET /api/config/vision; no automatic retries."""
+        return await self._request("GET", "/api/config/vision")
+
+    async def update_vision_config(self, payload: dict[str, Any]) -> Any:
+        """PUT /api/config/vision; no automatic retries."""
+        return await self._request("PUT", "/api/config/vision", json_data=payload)
+
+    async def test_vision_config(self, payload: dict[str, Any]) -> Any:
+        """POST /api/config/vision/test; no automatic retries."""
+        return await self._request("POST", "/api/config/vision/test", json_data=payload)
+
+    async def get_vision_prompts(self) -> Any:
+        """GET /api/config/vision-prompts; no automatic retries."""
+        return await self._request("GET", "/api/config/vision-prompts")
+
+    async def save_vision_prompt(self, payload: dict[str, Any]) -> Any:
+        """POST /api/config/vision-prompts; no automatic retries."""
+        return await self._request("POST", "/api/config/vision-prompts", json_data=payload)
+
+    async def delete_vision_prompt(self, name: str) -> Any:
+        """DELETE /api/config/vision-prompts/{name}; no automatic retries."""
+        return await self._request("DELETE", f"/api/config/vision-prompts/{quote(name, safe='')}")
+
+    async def get_tts_presets(self) -> Any:
+        """GET /api/config/tts; no automatic retries."""
+        return await self._request("GET", "/api/config/tts")
+
+    async def create_tts_preset(self, payload: dict[str, Any]) -> Any:
+        """POST /api/config/tts; no automatic retries."""
+        return await self._request("POST", "/api/config/tts", json_data=payload)
+
+    async def update_tts_preset(self, name: str, payload: dict[str, Any]) -> Any:
+        """PUT /api/config/tts/{name}; no automatic retries."""
+        return await self._request(
+            "PUT", f"/api/config/tts/{quote(name, safe='')}", json_data=payload
+        )
+
+    async def delete_tts_preset(self, name: str) -> Any:
+        """DELETE /api/config/tts/{name}; no automatic retries."""
+        return await self._request("DELETE", f"/api/config/tts/{quote(name, safe='')}")
+
+    async def activate_tts_preset(self, name: str) -> Any:
+        """POST /api/config/tts/{name}/activate; no automatic retries."""
+        return await self._request("POST", f"/api/config/tts/{quote(name, safe='')}/activate")
+
+    async def reorder_cameras(self, payload: dict[str, Any]) -> Any:
+        """POST /api/config/cameras/reorder; no automatic retries."""
+        return await self._request("POST", "/api/config/cameras/reorder", json_data=payload)
+
+    async def detect_camera(self, payload: dict[str, Any]) -> Any:
+        """POST /api/config/cameras/detect; no automatic retries."""
+        return await self._request("POST", "/api/config/cameras/detect", json_data=payload)
+
+    async def discover_cameras(self) -> Any:
+        """POST /api/config/cameras/discover; no automatic retries."""
+        return await self._request("POST", "/api/config/cameras/discover")
+
+    async def toggle_camera(self, name: str) -> Any:
+        """PATCH /api/config/cameras/{name}/toggle; no automatic retries."""
+        return await self._request("PATCH", f"/api/config/cameras/{quote(name, safe='')}/toggle")
+
+    async def delete_camera(self, name: str) -> Any:
+        """DELETE /api/config/cameras/{name}; no automatic retries."""
+        return await self._request("DELETE", f"/api/config/cameras/{quote(name, safe='')}")
+
+    async def get_go2rtc_streams(self) -> Any:
+        """GET /api/config/go2rtc/streams; no automatic retries."""
+        return await self._request("GET", "/api/config/go2rtc/streams")
+
+    async def get_airplay_config(self) -> Any:
+        """GET /api/config/airplay; no automatic retries."""
+        return await self._request("GET", "/api/config/airplay")
+
+    async def update_airplay_config(self, payload: dict[str, Any]) -> Any:
+        """PUT /api/config/airplay; no automatic retries."""
+        return await self._request("PUT", "/api/config/airplay", json_data=payload)
+
+    async def toggle_camera_airplay(self, camera: str) -> Any:
+        """PATCH /api/config/airplay/{camera}/toggle; no automatic retries."""
+        return await self._request("PATCH", f"/api/config/airplay/{quote(camera, safe='')}/toggle")
+
+    async def ping_camera(self, camera: str) -> Any:
+        """POST /api/cameras/{camera}/ping; no automatic retries."""
+        return await self._request("POST", f"/api/cameras/{quote(camera, safe='')}/ping")
+
+    async def get_camera_info(self, camera: str) -> Any:
+        """GET /api/cameras/{camera}/info; no automatic retries."""
+        return await self._request("GET", f"/api/cameras/{quote(camera, safe='')}/info")
+
+    async def get_streams(self) -> Any:
+        """GET /api/streams; no automatic retries."""
+        return await self._request("GET", "/api/streams")
+
+    async def vision(self, payload: dict[str, Any]) -> Any:
+        """POST /api/vision; no automatic retries."""
+        return await self._request("POST", "/api/vision", json_data=payload)
+
+    async def test_vision(self, payload: dict[str, Any]) -> Any:
+        """POST /api/vision/test; no automatic retries."""
+        return await self._request("POST", "/api/vision/test", json_data=payload)
+
+    async def test_all_vision_models(self, payload: dict[str, Any]) -> Any:
+        """POST /api/vision/test-all; no automatic retries."""
+        return await self._request("POST", "/api/vision/test-all", json_data=payload)
+
+    async def describe(self, payload: dict[str, Any]) -> Any:
+        """POST /api/describe; no automatic retries."""
+        return await self._request("POST", "/api/describe", json_data=payload)
+
+    async def generate_preset(self, payload: dict[str, Any]) -> Any:
+        """POST /api/library; no automatic retries."""
+        return await self._request("POST", "/api/library", json_data=payload)
+
+    async def get_upload_job(self, name: str) -> Any:
+        """GET /api/library/upload/jobs/{name}; no automatic retries."""
+        return await self._request("GET", f"/api/library/upload/jobs/{quote(name, safe='')}")
+
+    async def delete_preset(self, category: str, name: str) -> Any:
+        """DELETE /api/library/{category}/{name}; no automatic retries."""
+        return await self._request(
+            "DELETE", f"/api/library/{quote(category, safe='')}/{quote(name, safe='')}"
+        )
+
+    async def rename_preset(self, category: str, name: str, payload: dict[str, Any]) -> Any:
+        """PATCH /api/library/{category}/{name}; no automatic retries."""
+        return await self._request(
+            "PATCH",
+            f"/api/library/{quote(category, safe='')}/{quote(name, safe='')}",
+            json_data=payload,
+        )
+
+    async def get_preset_peaks(self, category: str, name: str) -> Any:
+        """GET /api/library/{category}/{name}/peaks; no automatic retries."""
+        return await self._request(
+            "GET", f"/api/library/{quote(category, safe='')}/{quote(name, safe='')}/peaks"
+        )
+
+    async def analyze_preset(self, category: str, name: str) -> Any:
+        """GET /api/library/{category}/{name}/analyze; no automatic retries."""
+        return await self._request(
+            "GET", f"/api/library/{quote(category, safe='')}/{quote(name, safe='')}/analyze"
+        )
+
+    async def set_preset_gain(self, category: str, name: str, payload: dict[str, Any]) -> Any:
+        """PUT /api/library/{category}/{name}/gain; no automatic retries."""
+        return await self._request(
+            "PUT",
+            f"/api/library/{quote(category, safe='')}/{quote(name, safe='')}/gain",
+            json_data=payload,
+        )
+
+    async def get_openapi(self) -> Any:
+        """GET /api/openapi.json; no automatic retries."""
+        return await self._request("GET", "/api/openapi.json")
+
+    async def snapshot(self, camera: str, **options: str | int) -> bytes:
+        """Fetch an image; options are method, stream and width."""
+        path = f"/api/snapshot/{quote(camera, safe='')}"
+        if options:
+            path += "?" + urlencode(options)
+        return await self._request("GET", path)
+
+    async def benchmark_snapshot(
+        self, camera: str, *, vision: bool = False, prompt: str = ""
+    ) -> Any:
+        """Compare capture methods without speaker playback."""
+        query = urlencode({"vision": str(vision).lower(), "prompt": prompt})
+        return await self._request(
+            "GET", f"/api/snapshot/{quote(camera, safe='')}/benchmark?{query}"
+        )
+
+    async def preview_preset(self, category: str, name: str) -> bytes:
+        """Download preview audio without camera playback."""
+        return await self._request(
+            "GET", f"/api/library/{quote(category, safe='')}/{quote(name, safe='')}/preview"
+        )
+
+    async def upload_preset(
+        self, name: str, filename: str, audio: bytes, category: str = "uploads"
+    ) -> Any:
+        """Upload audio once; poll get_upload_job before using the new preset."""
+        form = FormData()
+        form.add_field("file", audio, filename=filename, content_type="application/octet-stream")
+        form.add_field("category", category)
+        form.add_field("name", name)
+        async with self._session.post(
+            self._base_url + "/api/library/upload", data=form, timeout=ClientTimeout(total=120)
+        ) as resp:
+            if resp.status >= HTTPStatus.BAD_REQUEST:
+                raise CamspeakApiClientError(f"Upload returned HTTP {resp.status}")
+            return await _parse_response(resp)
+
+    async def stream_events(self) -> AsyncIterator[bytes]:
+        """Yield raw SSE chunks; closing the iterator closes the subscription."""
+        async with aclosing(self._stream("GET", "/api/events")) as stream:
+            async for chunk in stream:
+                yield chunk
+
+    async def stream_levels(self) -> AsyncIterator[bytes]:
+        """Yield raw level-event SSE chunks, not JSON responses."""
+        async with aclosing(self._stream("GET", "/api/stream-levels")) as stream:
+            async for chunk in stream:
+                yield chunk
+
+    async def stream_benchmark(self, payload: dict[str, Any]) -> AsyncIterator[bytes]:
+        """Stream the benchmark matrix once; do not retry interrupted starts."""
+        async with aclosing(self._stream("POST", "/api/benchmark", payload)) as stream:
+            async for chunk in stream:
+                yield chunk
+
+    async def stream_vision_comparison(self, payload: dict[str, Any]) -> AsyncIterator[bytes]:
+        """Stream model comparisons once without camera playback."""
+        async with aclosing(self._stream("POST", "/api/vision/test-all/stream", payload)) as stream:
+            async for chunk in stream:
+                yield chunk
+
+    async def _stream(
+        self, method: str, endpoint: str, payload: dict[str, Any] | None = None
+    ) -> AsyncIterator[bytes]:
+        """Keep response lifetime scoped to consumption; never replay a request."""
+        async with self._session.request(
+            method,
+            self._base_url + endpoint,
+            json=payload,
+            timeout=ClientTimeout(total=None, sock_connect=30),
+        ) as resp:
+            if resp.status >= HTTPStatus.BAD_REQUEST or resp.content_type != "text/event-stream":
+                raise CamspeakApiClientError(
+                    f"Expected SSE from {endpoint}; HTTP {resp.status}, type {resp.content_type}"
+                )
+            async for chunk in resp.content.iter_any():
+                yield chunk
 
     async def health(self) -> dict[str, Any]:
         """GET /api/health."""
@@ -281,7 +534,7 @@ class CamspeakApiClient:
         ten minutes or earlier eviction; a missing job does not prove that
         playback failed.
         """
-        return await self._request("GET", f"/api/describe/jobs/{job_id}")
+        return await self._request("GET", f"/api/describe/jobs/{quote(job_id, safe='')}")
 
     async def broadcast(
         self,
@@ -344,7 +597,12 @@ class CamspeakApiClient:
 
 
 async def _parse_response(resp: ClientResponse) -> Any:
-    """Parse response body as JSON or text."""
+    """Preserve binary audio/images; parse JSON and textual responses normally."""
+    if (
+        resp.content_type.startswith(("audio/", "image/"))
+        or resp.content_type == "application/octet-stream"
+    ):
+        return await resp.read()
     if resp.content_type == "application/json":
         return await resp.json()
     return await resp.text()
