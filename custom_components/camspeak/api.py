@@ -100,6 +100,12 @@ class CamspeakApiClient:
             "POST", "/api/config/tts/test", {"url": url, "model": model, "api_key": api_key}
         )
 
+    async def set_camera_tts_mode(self, camera: dict[str, Any], mode: str = "") -> dict[str, Any]:
+        """Override camera speech mode, or inherit the preset with an empty mode."""
+        if mode not in ("", "buffered", "streaming"):
+            raise ValueError("Mode must be empty, buffered or streaming")
+        return await self._request("POST", "/api/config/cameras", {**camera, "tts_mode": mode})
+
     async def get_library(self) -> list[dict[str, Any]]:
         """GET /api/library."""
         return await self._request("GET", "/api/library")

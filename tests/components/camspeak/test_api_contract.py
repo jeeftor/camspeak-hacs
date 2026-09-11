@@ -23,6 +23,20 @@ async def test_tts_model_catalog_contract() -> None:
         )
 
 
+async def test_camera_tts_mode_contract() -> None:
+    """Change only speech mode and preserve all other camera fields."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.set_camera_tts_mode({"name": "front", "ip": "192.0.2.1"}, "streaming")
+        request.assert_awaited_once_with(
+            "POST",
+            "/api/config/cameras",
+            {"name": "front", "ip": "192.0.2.1", "tts_mode": "streaming"},
+        )
+        with pytest.raises(ValueError, match="Mode must be"):
+            await client.set_camera_tts_mode({"name": "front", "ip": "192.0.2.1"}, "unknown")
+
+
 async def test_capture_source_pair() -> None:
     """Preserve camera settings while changing method and stream together."""
     client = CamspeakApiClient("http://example.com", MagicMock())
