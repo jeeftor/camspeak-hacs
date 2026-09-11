@@ -11,6 +11,37 @@ from custom_components.camspeak.coordinator import CameraData, CamspeakData
 from custom_components.camspeak.media_player import CamspeakMediaPlayer, _preset_browse_item
 
 
+async def test_get_events_preserves_replay_metadata() -> None:
+    """Keep legacy records and new replay options intact when reading history."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    events = [
+        {"camera": "front", "action": "play", "text": "Legacy"},
+        {
+            "id": 2,
+            "camera": "Front & Back",
+            "action": "play",
+            "replay": {
+                "method": "POST",
+                "path": "/api/play",
+                "body": {"camera": "Front & Back", "preset": "Alert", "gain": 0, "loop": -1},
+            },
+        },
+    ]
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        request.return_value = events
+        result = await client.get_events(limit=20, camera="Front & Back")
+        request.assert_awaited_once_with("GET", "/api/events/log?limit=20&camera=Front+%26+Back")
+    assert result == events
+
+
+async def test_get_events_defaults() -> None:
+    """Request recent history without adding an empty camera filter."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.get_events()
+        request.assert_awaited_once_with("GET", "/api/events/log?limit=100")
+
+
 @pytest.mark.parametrize(
     ("method", "arguments"),
     [

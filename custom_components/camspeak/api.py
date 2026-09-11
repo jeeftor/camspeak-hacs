@@ -1,6 +1,7 @@
 """Async API client for the camspeak server."""
 
 from typing import Any
+from urllib.parse import urlencode
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 
@@ -61,6 +62,13 @@ class CamspeakApiClient:
     async def get_playback(self) -> dict[str, Any]:
         """GET /api/playback."""
         return await self._request("GET", "/api/playback")
+
+    async def get_events(self, limit: int = 100, camera: str = "") -> list[dict[str, Any]]:
+        """Get playback history, preserving optional replay metadata from newer servers."""
+        query: dict[str, str | int] = {"limit": limit}
+        if camera:
+            query["camera"] = camera
+        return await self._request("GET", f"/api/events/log?{urlencode(query)}")
 
     async def get_library(self) -> list[dict[str, Any]]:
         """GET /api/library."""
