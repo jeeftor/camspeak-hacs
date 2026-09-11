@@ -25,6 +25,19 @@ async def test_capture_source_pair() -> None:
     assert camera["vision_stream"] == "old"
 
 
+async def test_speaker_benchmark_job_contract() -> None:
+    """Require caller confirmation and keep polling/cancellation separate from playback."""
+    client = CamspeakApiClient("http://example.com", MagicMock())
+    with patch.object(client, "_request", new_callable=AsyncMock) as request:
+        await client.start_speaker_benchmark("front", "local", "hello", confirm_playback=True)
+        assert request.call_args.args[0:2] == ("POST", "/api/config/tts/benchmark/speaker")
+        assert request.call_args.args[2]["confirm_playback"] is True
+        await client.get_speaker_benchmark("job/one")
+        request.assert_awaited_with("GET", "/api/config/tts/benchmark/jobs/job%2Fone")
+        await client.cancel_speaker_benchmark("job/one")
+        request.assert_awaited_with("DELETE", "/api/config/tts/benchmark/jobs/job%2Fone")
+
+
 async def test_benchmark_tts_contract() -> None:
     """Send explicit transport and PCM parameters without touching playback."""
     client = CamspeakApiClient("http://example.com", MagicMock())

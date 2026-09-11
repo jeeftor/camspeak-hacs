@@ -1,7 +1,7 @@
 """Async API client for the camspeak server."""
 
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 
@@ -97,6 +97,46 @@ class CamspeakApiClient:
     async def get_library(self) -> list[dict[str, Any]]:
         """GET /api/library."""
         return await self._request("GET", "/api/library")
+
+    async def start_speaker_benchmark(
+        self,
+        camera: str,
+        preset: str,
+        text: str,
+        *,
+        confirm_playback: bool,
+        voice: str = "",
+        sample_rate: int = 24000,
+        channels: int = 1,
+        streaming_first: bool = False,
+    ) -> dict[str, Any]:
+        """Start explicitly confirmed camera playback; poll the returned job identifier."""
+        return await self._request(
+            "POST",
+            "/api/config/tts/benchmark/speaker",
+            {
+                "camera": camera,
+                "preset": preset,
+                "text": text,
+                "voice": voice,
+                "confirm_playback": confirm_playback,
+                "sample_rate": sample_rate,
+                "channels": channels,
+                "streaming_first": streaming_first,
+            },
+        )
+
+    async def get_speaker_benchmark(self, job_id: str) -> dict[str, Any]:
+        """Read retained comparison results without replaying audio."""
+        return await self._request(
+            "GET", f"/api/config/tts/benchmark/jobs/{quote(job_id, safe='')}"
+        )
+
+    async def cancel_speaker_benchmark(self, job_id: str) -> dict[str, Any]:
+        """Cancel only the selected comparison job."""
+        return await self._request(
+            "DELETE", f"/api/config/tts/benchmark/jobs/{quote(job_id, safe='')}"
+        )
 
     async def get_voices(self) -> list[str]:
         """GET /api/voices — available TTS voices."""
